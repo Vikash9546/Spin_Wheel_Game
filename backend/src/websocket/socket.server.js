@@ -14,7 +14,11 @@ function initSocket(server) {
 
   // Authenticate socket connections using JWT
   io.use((socket, next) => {
-    const token = socket.handshake.auth?.token || socket.handshake.headers?.authorization;
+    // Read token from handshake auth, headers, or query parameters
+    const token = socket.handshake.auth?.token || 
+                  socket.handshake.headers?.authorization ||
+                  socket.handshake.query?.token;
+                  
     if (!token) {
       return next(new Error('Authentication error: Token missing'));
     }
@@ -33,6 +37,9 @@ function initSocket(server) {
   io.on('connection', (socket) => {
     const userId = socket.user.id;
     console.log(`🔌 Client connected: socket.id=${socket.id}, userId=${userId}`);
+
+    // Join a personal user room to support efficient O(1) direct messaging
+    socket.join(`user:${userId}`);
 
     // Allow clients to join specific room for a spin wheel
     socket.on('joinWheelRoom', (wheelId) => {
@@ -62,15 +69,11 @@ function getIO() {
 
 /**
  * Emit event to a specific user.
+ * Direct dispatch to user room is highly performant O(1) compared to looping all connected sockets.
  */
 function emitToUser(userId, event, data) {
   if (!io) return;
-  // Send event to all sockets matching userId
-  io.sockets.sockets.forEach((socket) => {
-    if (socket.user && socket.user.id === userId) {
-      socket.emit(event, data);
-    }
-  });
+  io.to(`user:${userId}`).emit(event, data);
 }
 
 /**

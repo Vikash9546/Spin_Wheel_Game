@@ -11,6 +11,14 @@ function getRedisConnection() {
     redisConnection = new Redis(redisUrl, {
       maxRetriesPerRequest: null, // Required by BullMQ
     });
+
+    redisConnection.on('error', (err) => {
+      console.error('🔴 [Redis] Error in connection:', err.message);
+    });
+
+    redisConnection.on('connect', () => {
+      console.log('🔌 [Redis] Connected successfully.');
+    });
   }
   return redisConnection;
 }
@@ -24,10 +32,10 @@ function initQueue() {
       attempts: 5,
       backoff: {
         type: 'exponential',
-        delay: 5000, // Retry in 5s, 10s, 20s...
+        delay: 5000,
       },
-      removeOnComplete: true, // Keep Redis clean
-      removeOnFail: false,   // Keep failed jobs for inspection
+      removeOnComplete: true,
+      removeOnFail: false,
     },
   });
 
@@ -44,7 +52,6 @@ function getQueue() {
 function initWorker() {
   const connection = getRedisConnection();
 
-  // Lazy-load job handlers to prevent circular dependencies
   const wheelStartJob = require('./wheelStart.job');
   const eliminationJob = require('./elimination.job');
   const refundJob = require('./refund.job');
@@ -65,12 +72,12 @@ function initWorker() {
         }
       } catch (err) {
         console.error(`[BullMQ] Error processing job ${job.id} [${job.name}]:`, err);
-        throw err; // Let BullMQ handle retries
+        throw err;
       }
     },
     {
       connection,
-      concurrency: 1, // Concurrency 1 ensures we serialize game states per worker process
+      concurrency: 1, // Serialized execution to prevent race conditions
     }
   );
 
@@ -85,9 +92,29 @@ function initWorker() {
   return wheelWorker;
 }
 
+/**
+ * Gracefully shuts down workers, queues, and connection poolers.
+ */
+async function closeQueueAndWorkers() {
+  console.log('🔌 [BullMQ] Shutting down queues and workers...');
+  if (wheelWorker) {
+    await wheelWorker.close();
+    console.log('🔌 [BullMQ] Worker terminated.');
+  }
+  if (wheelQueue) {
+    await wheelQueue.close();
+    console.log('🔌 [BullMQ] Queue manager terminated.');
+  }
+  if (redisConnection) {
+    redisConnection.disconnect();
+    console.log('🔌 [Redis] Connection pool disconnected.');
+  }
+}
+
 module.exports = {
   getRedisConnection,
   initQueue,
   getQueue,
   initWorker,
+  closeQueueAndWorkers,
 };

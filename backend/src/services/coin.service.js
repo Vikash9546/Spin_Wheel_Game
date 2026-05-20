@@ -7,6 +7,9 @@ const prisma = require('../db/prisma');
  * @returns {Promise<object>} The locked user object
  */
 async function lockUser(tx, userId) {
+  if (!tx) {
+    throw new Error('Transaction context (tx) is required for lockUser');
+  }
   await tx.$executeRaw`SELECT 1 FROM "users" WHERE id = ${userId} FOR UPDATE`;
   return await tx.user.findUnique({ where: { id: userId } });
 }
@@ -21,6 +24,9 @@ async function lockUser(tx, userId) {
  * @param {string} referenceId - Related entity ID
  */
 async function debit(tx, userId, amount, type, referenceType, referenceId) {
+  if (!tx) {
+    throw new Error('Transaction context (tx) is required for debit operations');
+  }
   const bigintAmount = BigInt(amount);
   if (bigintAmount <= 0n) {
     throw new Error('Debit amount must be greater than zero');
@@ -70,6 +76,9 @@ async function debit(tx, userId, amount, type, referenceType, referenceId) {
  * @param {string} referenceId - Related entity ID
  */
 async function credit(tx, userId, amount, type, referenceType, referenceId) {
+  if (!tx) {
+    throw new Error('Transaction context (tx) is required for credit operations');
+  }
   const bigintAmount = BigInt(amount);
   if (bigintAmount <= 0n) {
     throw new Error('Credit amount must be greater than zero');
@@ -111,6 +120,9 @@ async function credit(tx, userId, amount, type, referenceType, referenceId) {
  * @returns {Promise<object>} The system app user object
  */
 async function getOrCreateSystemAppUser(tx) {
+  if (!tx) {
+    throw new Error('Transaction context (tx) is required for getOrCreateSystemAppUser');
+  }
   const systemAppId = 'SYSTEM_APP';
   let systemUser = await tx.user.findUnique({ where: { id: systemAppId } });
   if (!systemUser) {

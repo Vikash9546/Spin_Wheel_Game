@@ -6,8 +6,9 @@ const cors = require('cors');
 const helmet = require('helmet');
 
 const { initSocket } = require('./websocket/socket.server');
-const { initQueue, initWorker } = require('./jobs/queue');
+const { initQueue, initWorker, closeQueueAndWorkers } = require('./jobs/queue');
 const { recoverActiveGames } = require('./jobs/recovery.job');
+const prisma = require('./db/prisma');
 
 const authRouter = require('./modules/auth/auth.routes');
 const wheelRouter = require('./modules/wheels/wheel.routes');
@@ -40,3 +41,39 @@ server.listen(PORT, async () => {
   // Execute startup recovery logic for active games
   await recoverActiveGames();
 });
+
+// Graceful Shutdown Handler
+let isShuttingDown = false;
+async function handleGracefulShutdown(signal) {
+  if (isShuttingDown) return;
+  isShuttingDown = true;
+  console.log(`\n🛑 [Shutdown] Received ${signal}. Starting graceful termination...`);
+
+  try {
+    // 1. Close WebSockets and HTTP server
+    server.close(() => {
+      console.log('🛑 [Shutdown] HTTP and Socket server stopped listening.');
+    });
+
+    // 2. Shut down BullMQ queues and workers
+    await closeQueueAndWorkers();
+
+    // 3. Disconnect database client
+    await prisma.$disconnect();
+    console.log('🛑 [Shutdown] Database connections closed.');
+
+    console.log('✅ [Shutdown] Graceful exit complete.');
+    process.exit(0);
+  } catch (err) {
+    console.error('❌ [Shutdown] Error during termination:', err.message);
+    process.exit(1);
+  }
+}
+
+process.on('SIGTERM', () => handleGracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => handleGracefulShutdown('SIGINT'));
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('⚠️ [Warning] Unhandled Rejection at:', promise, 'reason:', reason);
+});
+
