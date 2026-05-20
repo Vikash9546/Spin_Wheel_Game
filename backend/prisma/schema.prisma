@@ -1,0 +1,97 @@
+generator client {
+  provider = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum WheelStatus {
+  WAITING
+  STARTING
+  RUNNING
+  COMPLETED
+  ABORTED
+}
+
+enum TransactionType {
+  JOIN_DEBIT
+  REFUND
+  WIN_REWARD
+  ADMIN_REWARD
+  APP_COMMISSION
+}
+
+model User {
+  id                String             @id @default(uuid())
+  name              String
+  coins             BigInt             @default(0) @map("coins")
+  createdAt         DateTime           @default(now()) @map("created_at")
+  transactions      Transaction[]
+  wheelParticipants WheelParticipant[]
+
+  @@map("users")
+}
+
+model SpinWheel {
+  id                String             @id @default(uuid())
+  status            WheelStatus        @default(WAITING)
+  entryFee          BigInt             @map("entry_fee")
+  minPlayers        Int                @default(3) @map("min_players")
+  winnerPool        BigInt             @default(0) @map("winner_pool")
+  adminPool         BigInt             @default(0) @map("admin_pool")
+  appPool           BigInt             @default(0) @map("app_pool")
+  startedAt         DateTime?          @map("started_at")
+  endedAt           DateTime?          @map("ended_at")
+  createdBy         String             @map("created_by")
+  winnerId          String?            @map("winner_id")
+  participants      WheelParticipant[]
+  currentRound      Int                @default(0) @map("current_round")
+  nextEliminationAt DateTime?          @map("next_elimination_at")
+  eliminationOrder  String[]           @default([]) @map("elimination_order")
+  createdAt         DateTime           @default(now()) @map("created_at")
+  updatedAt         DateTime           @updatedAt @map("updated_at")
+
+  @@map("spin_wheels")
+}
+
+model WheelParticipant {
+  id           String    @id @default(uuid())
+  wheelId      String    @map("wheel_id")
+  userId       String    @map("user_id")
+  joinedAt     DateTime  @default(now()) @map("joined_at")
+  eliminatedAt DateTime? @map("eliminated_at")
+  isWinner     Boolean   @default(false) @map("is_winner")
+  wheel        SpinWheel @relation(fields: [wheelId], references: [id])
+  user         User      @relation(fields: [userId], references: [id])
+
+  @@unique([wheelId, userId])
+  @@map("wheel_participants")
+}
+
+model Transaction {
+  id            String          @id @default(uuid())
+  userId        String          @map("user_id")
+  type          TransactionType
+  amount        BigInt          // positive value for credit, negative for debit
+  balanceBefore BigInt          @map("balance_before")
+  balanceAfter  BigInt          @map("balance_after")
+  referenceType String?         @map("reference_type")
+  referenceId   String?         @map("reference_id")
+  createdAt     DateTime        @default(now()) @map("created_at")
+  user          User            @relation(fields: [userId], references: [id])
+
+  @@map("transactions")
+}
+
+model GameConfig {
+  id               String   @id @default(uuid())
+  winnerPercentage Int      @default(70) @map("winner_percentage")
+  adminPercentage  Int      @default(15) @map("admin_percentage")
+  appPercentage    Int      @default(15) @map("app_percentage")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  @@map("game_config")
+}
