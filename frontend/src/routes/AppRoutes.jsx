@@ -5,6 +5,7 @@ import Login from '../pages/Login';
 import Dashboard from '../pages/Dashboard';
 import SpinWheel from '../pages/SpinWheel';
 import Wallet from '../pages/Wallet';
+import Transactions from '../pages/Transactions';
 import Admin from '../pages/Admin';
 
 function ProtectedRoute({ children }) {
@@ -33,6 +34,7 @@ export default function AppRoutes() {
         <Route index element={<Dashboard />} />
         <Route path="/wheel" element={<SpinWheel />} />
         <Route path="/wallet" element={<Wallet />} />
+        <Route path="/transactions" element={<Transactions />} />
         <Route
           path="/admin"
           element={

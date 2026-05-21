@@ -39,7 +39,7 @@ export default function Header() {
             <RiWalletLine size={14} />
           </div>
           <span className="font-mono text-sm text-[#a4e6ff] font-bold tracking-wide">
-            {formatCoins(coins)}
+            {'$' + formatCoins(coins)}
           </span>
         </div>
 

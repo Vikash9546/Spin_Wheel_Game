@@ -28,12 +28,19 @@ export default function AppLayout() {
 
     socket.on('connect', () => setConnected(true, socket.id));
     socket.on('disconnect', () => setConnected(false, null));
+    // Listen for real-time wallet updates
+    socket.on('walletUpdated', (data) => {
+      if (data && typeof data.coins === 'number') {
+        setCoins(data.coins);
+      }
+    });
 
     return () => {
       socket.off('connect');
       socket.off('disconnect');
+      socket.off('walletUpdated');
     };
-  }, [token, setConnected]);
+  }, [token, setConnected, setCoins]);
 
   // Sync initial balance from stored user.
   useEffect(() => {

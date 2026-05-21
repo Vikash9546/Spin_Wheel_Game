@@ -15,23 +15,29 @@ export default function Login() {
   const [tab, setTab] = useState('login');
   const [loading, setLoading] = useState(false);
 
-  // login form
-  const [userId, setUserId] = useState('');
-  // register form
+  // login fields
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+
+  // register-only fields
   const [name, setName] = useState('');
-  const [coins, setCoins] = useState(1000);
+  const [role, setRole] = useState('');   // mandatory — 'user' | 'admin'
 
   if (token) return <Navigate to="/" replace />;
 
   async function submit(e) {
     e.preventDefault();
+    if (tab === 'register' && !role) {
+      toast.error('Please select a role (User or Admin).');
+      return;
+    }
     setLoading(true);
     try {
       if (tab === 'login') {
-        await handleLogin(userId.trim());
+        await handleLogin(email.trim(), password);
         toast.success('Welcome back!');
       } else {
-        await handleRegister(name.trim(), Number(coins));
+        await handleRegister(name.trim(), email.trim(), password, role);
         toast.success('Account created! Welcome to ELIMINATOR 🎉');
       }
     } catch (err) {
@@ -80,6 +86,7 @@ export default function Login() {
           {['login', 'register'].map((t) => (
             <button
               key={t}
+              id={`tab-${t}`}
               onClick={() => setTab(t)}
               className={`flex-1 py-2.5 text-[11px] font-mono font-bold uppercase tracking-widest transition-all duration-200 ${
                 tab === t
@@ -94,36 +101,117 @@ export default function Login() {
 
         <form onSubmit={submit} className="flex flex-col gap-4">
           {tab === 'login' ? (
-            <Input
-              label="User ID"
-              type="text"
-              placeholder="Enter your user ID"
-              value={userId}
-              onChange={(e) => setUserId(e.target.value)}
-              required
-            />
+            <>
+              <Input
+                label="Email"
+                type="email"
+                placeholder="player@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                autoComplete="email"
+                required
+              />
+              <Input
+                label="Password"
+                type="password"
+                placeholder="Enter your password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                autoComplete="current-password"
+                minLength={6}
+                required
+              />
+            </>
           ) : (
             <>
+              {/* Name */}
               <Input
                 label="Display Name"
                 type="text"
                 placeholder="Pro Gamer"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
+                autoComplete="name"
                 required
               />
+
+              {/* Email */}
               <Input
-                label="Starting Coins"
-                type="number"
-                placeholder="1000"
-                value={coins}
-                onChange={(e) => setCoins(e.target.value)}
-                min="0"
+                label="Email"
+                type="email"
+                placeholder="player@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                autoComplete="email"
+                required
               />
+
+              {/* Password */}
+              <Input
+                label="Password"
+                type="password"
+                placeholder="At least 6 characters"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                autoComplete="new-password"
+                minLength={6}
+                required
+              />
+
+              {/* Role — mandatory */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[11px] font-mono font-semibold uppercase tracking-widest text-on-muted">
+                  Role <span className="text-red-400">*</span>
+                </label>
+                <p className="text-[10px] text-on-muted/60">
+                  Admins can create &amp; manage spin wheels.
+                </p>
+                <div className="grid grid-cols-2 gap-2 mt-1">
+                  {[
+                    { value: 'user',  emoji: '🎮', label: 'User'  },
+                    { value: 'admin', emoji: '⚡', label: 'Admin' },
+                  ].map(({ value, emoji, label }) => (
+                    <button
+                      key={value}
+                      type="button"
+                      id={`role-${value}`}
+                      onClick={() => setRole(value)}
+                      className={`py-3 rounded-lg border text-sm font-bold tracking-wide transition-all duration-200 ${
+                        role === value
+                          ? value === 'admin'
+                            ? 'border-purple-500 bg-purple-500/20 text-purple-300 shadow-[0_0_12px_rgba(168,85,247,0.3)]'
+                            : 'border-cyan-500 bg-cyan-500/20 text-cyan-300 shadow-[0_0_12px_rgba(34,211,238,0.3)]'
+                          : 'border-outline text-on-muted hover:bg-white/5'
+                      }`}
+                    >
+                      {emoji} {label}
+                    </button>
+                  ))}
+                </div>
+                {!role && (
+                  <p className="text-[10px] text-red-400 mt-0.5">⚠ Role is required.</p>
+                )}
+              </div>
+
+              {/* Starting Coins — read-only badge */}
+              <div className="flex items-center justify-between px-4 py-3 rounded-lg border border-yellow-500/25 bg-yellow-500/5">
+                <div>
+                  <p className="text-[11px] font-mono uppercase tracking-widest text-on-muted">
+                    Starting Coins
+                  </p>
+                  <p className="text-[10px] text-on-muted/50 mt-0.5">Auto-assigned · not editable</p>
+                </div>
+                <span className="text-xl font-black text-yellow-400">🪙 1,000</span>
+              </div>
             </>
           )}
 
-          <Button type="submit" full loading={loading} variant={tab === 'login' ? 'primary' : 'secondary'}>
+          <Button
+            type="submit"
+            full
+            loading={loading}
+            variant={tab === 'login' ? 'primary' : 'secondary'}
+          >
             {tab === 'login' ? 'LOGIN' : 'CREATE ACCOUNT'}
           </Button>
         </form>
@@ -141,7 +229,7 @@ export default function Login() {
         </Button>
 
         <p className="text-center text-[11px] text-on-muted mt-4">
-          This is a demo. User IDs are public.
+          Seed creates demo credentials and logs you in as admin.
         </p>
       </motion.div>
     </div>

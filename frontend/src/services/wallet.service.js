@@ -11,8 +11,16 @@ export const WalletService = {
     return data;
   },
 
-  async getTransactions() {
-    const { data } = await api.get('/wallets/transactions');
+  async getTransactions(params = {}) {
+    const query = new URLSearchParams();
+    Object.entries(params).forEach(([key, val]) => {
+      if (val !== undefined && val !== null && val !== '') {
+        query.append(key, String(val));
+      }
+    });
+    const queryString = query.toString();
+    const url = `/wallets/transactions${queryString ? `?${queryString}` : ''}`;
+    const { data } = await api.get(url);
     return data;
   },
 

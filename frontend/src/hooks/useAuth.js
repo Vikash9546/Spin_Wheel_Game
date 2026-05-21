@@ -10,16 +10,16 @@ export function useAuth() {
   const { setCoins } = useWalletStore();
   const navigate = useNavigate();
 
-  async function handleLogin(userId) {
-    const data = await AuthService.login(userId);
+  async function handleLogin(email, password) {
+    const data = await AuthService.login(email, password);
     login(data.user, data.token);
     setCoins(data.user.coins ?? 0);
     connectSocket(data.token);
     navigate('/');
   }
 
-  async function handleRegister(name, coins) {
-    const data = await AuthService.register(name, coins);
+  async function handleRegister(name, email, password, role) {
+    const data = await AuthService.register(name, email, password, role);
     login(data.user, data.token);
     setCoins(data.user.coins ?? 0);
     connectSocket(data.token);

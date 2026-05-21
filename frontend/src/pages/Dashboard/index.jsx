@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
@@ -12,16 +12,11 @@ import { formatCoins } from '../../utils/formatters';
 import { WHEEL_STATUS } from '../../utils/constants';
 import StatCard from '../../components/common/StatCard';
 import Badge from '../../components/common/Badge';
+import { WalletService } from '../../services/wallet.service';
 import WheelCanvas from '../../components/wheel/WheelCanvas';
 import LiveEventFeed from '../../components/realtime/LiveEventFeed';
 
-const MOCK_TXNS = [
-  { label: 'Win #842',        amount: +500, date: '2024-10-24', type: 'WIN_REWARD'  },
-  { label: 'Entry Fee',       amount: -100, date: '2024-10-24', type: 'JOIN_DEBIT'  },
-  { label: 'Weekly Bonus',    amount: +250, date: '2024-10-23', type: 'WIN_REWARD'  },
-  { label: 'Entry Fee',       amount: -100, date: '2024-10-22', type: 'JOIN_DEBIT'  },
-  { label: 'Win #836',        amount: +320, date: '2024-10-21', type: 'WIN_REWARD'  },
-];
+
 
 const perfData = [
   { name: 'Win', value: 68, fill: '#4cd6ff' },
@@ -32,8 +27,33 @@ export default function Dashboard() {
   const user  = useAuthStore((s) => s.user);
   const coins = useWalletStore((s) => s.coins);
   const { activeWheel, participants, fetchActiveWheel } = useWheel();
+  const [transactions, setTransactions] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  useEffect(() => { fetchActiveWheel(); }, [fetchActiveWheel]);
+  const fetchTransactions = useCallback(async () => {
+    setLoading(true);
+    try {
+      const raw = await WalletService.getTransactions();
+      const data = raw.map((tx) => ({
+        label: tx.type,
+        amount: Number(tx.amount),
+        date: new Date(tx.createdAt).toLocaleDateString(),
+        type: tx.type,
+      }));
+      setTransactions(data);
+    } catch (e) {
+      setError(e.message || 'Failed to load transactions');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchActiveWheel();
+    const timeout = setTimeout(fetchTransactions, 0);
+    return () => clearTimeout(timeout);
+  }, [fetchActiveWheel, fetchTransactions]);
 
   const isRunning = activeWheel?.status === WHEEL_STATUS.RUNNING;
 
@@ -140,18 +160,32 @@ export default function Dashboard() {
             </tr>
           </thead>
           <tbody>
-            {MOCK_TXNS.map((t, i) => {
-              const pos = t.amount >= 0;
-              return (
-                <tr key={i} className="border-b border-outline/50 hover:bg-white/[0.02] transition-colors last:border-0">
-                  <td className="px-5 py-3.5 text-sm">{t.label}</td>
-                  <td className="px-5 py-3.5 text-xs text-on-muted">{t.date}</td>
-                  <td className={`px-5 py-3.5 font-mono font-bold text-sm ${pos ? 'text-primary' : 'text-secondary'}`}>
-                    {pos ? '+' : ''}{formatCoins(t.amount)}
-                  </td>
-                </tr>
-              );
-            })}
+            {loading ? (
+              <tr className="border-b border-outline/50">
+                <td colSpan="3" className="px-5 py-3.5 text-center text-sm text-on-muted">
+                  Loading transactions...
+                </td>
+              </tr>
+            ) : error ? (
+              <tr className="border-b border-outline/50">
+                <td colSpan="3" className="px-5 py-3.5 text-center text-sm text-error">
+                  {error}
+                </td>
+              </tr>
+            ) : (
+              transactions.map((t, i) => {
+                const pos = t.amount >= 0;
+                return (
+                  <tr key={i} className="border-b border-outline/50 hover:bg-white/[0.02] transition-colors last:border-0">
+                    <td className="px-5 py-3.5 text-sm">{t.label}</td>
+                    <td className="px-5 py-3.5 text-xs text-on-muted">{t.date}</td>
+                    <td className={`px-5 py-3.5 font-mono font-bold text-sm ${pos ? 'text-primary' : 'text-secondary'}`}>
+                      {pos ? '+' : ''}{formatCoins(t.amount)}
+                    </td>
+                  </tr>
+                );
+              })
+            )}
           </tbody>
         </table>
       </div>

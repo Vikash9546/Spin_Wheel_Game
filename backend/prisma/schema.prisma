@@ -29,6 +29,9 @@ enum TransactionType {
 model User {
   id                String             @id @default(uuid())
   name              String
+  email             String             @unique
+  passwordHash      String             @map("password_hash"),
+  role              String             @default("user")
   coins             BigInt             @default(0) @map("coins")
   createdAt         DateTime           @default(now()) @map("created_at")
   transactions      Transaction[]

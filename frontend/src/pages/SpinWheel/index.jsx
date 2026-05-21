@@ -473,6 +473,9 @@ export default function SpinWheel() {
         open={showWinnerModal}
         winner={winner?.user || { userId: winner?.userId }}
         prizePool={activeWheel?.winnerPool}
+        eliminatedCount={eliminatedCount}
+        startedAt={activeWheel?.startedAt}
+        endedAt={activeWheel?.endedAt}
         onClose={() => setDismissedWinnerId(winnerId)}
       />
     </div>

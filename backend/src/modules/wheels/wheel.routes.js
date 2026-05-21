@@ -7,6 +7,10 @@ const router = express.Router();
 
 // Admin creates wheel
 router.post('/wheels', async (req, res) => {
+  // Only admins can create wheels
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Forbidden: Only admins can create wheels' });
+  }
   const { entryFee } = req.body;
   if (!entryFee) {
     return res.status(400).json({ error: 'entryFee is required' });
@@ -119,6 +123,21 @@ router.get('/wheels/active/current', async (req, res) => {
     });
 
     res.json(wheelWithParticipants);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get wheel history for the authenticated user
+router.get('/wheels/history/list', async (req, res) => {
+  try {
+    const userId = req.user.id;
+    // Retrieve wheels where the user participated and the wheel is completed
+    const wheels = await prisma.spinWheel.findMany({
+      where: { participants: { some: { userId } }, status: { in: ['COMPLETED', 'ABORTED'] } },
+      include: { participants: { include: { user: { select: { name: true } } } } },
+    });
+    res.json(wheels);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
