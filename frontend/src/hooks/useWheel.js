@@ -52,8 +52,18 @@ export function useWheel() {
   useSocketEvent(SOCKET_EVENTS.GAME_COMPLETED, useCallback(async (data) => {
     addLogEntry({ type: 'win', msg: `Game complete! Winner ID: ${data?.winnerId}`, time: new Date() });
     toast.success('🏆 Game Over! Winner has been declared!', { duration: 6000 });
-    await fetchActiveWheel();
-  }, [fetchActiveWheel, addLogEntry]));
+    // Fetch the completed wheel by its specific ID (fetchActiveWheel won't find COMPLETED wheels)
+    if (data?.wheelId) {
+      try {
+        const wheel = await WheelService.getWheel(data.wheelId);
+        setWheel(wheel);
+      } catch {
+        await fetchActiveWheel();
+      }
+    } else {
+      await fetchActiveWheel();
+    }
+  }, [fetchActiveWheel, setWheel, addLogEntry]));
 
   useSocketEvent(SOCKET_EVENTS.WALLET_UPDATED, useCallback((data) => {
     setCoins(data.coins);
