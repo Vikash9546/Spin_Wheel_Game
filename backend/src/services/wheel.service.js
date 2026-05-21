@@ -89,6 +89,12 @@ async function joinWheel(userId, wheelId) {
       throw new Error(`Cannot join wheel: Status is ${wheel.status}`);
     }
 
+    // Enforce maximum participant cap to prevent unbounded joins
+    const MAX_PARTICIPANTS = 12;
+    if (wheel.participants.length >= MAX_PARTICIPANTS) {
+      throw new Error(`Wheel is full: maximum ${MAX_PARTICIPANTS} participants allowed`);
+    }
+
     // Check if user has already joined
     const alreadyJoined = wheel.participants.some((p) => p.userId === userId);
     if (alreadyJoined) {

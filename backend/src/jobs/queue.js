@@ -78,6 +78,8 @@ function initWorker() {
     {
       connection,
       concurrency: 1, // Serialized execution to prevent race conditions
+      stalledInterval: 30000, // Check for stalled jobs every 30s
+      lockDuration: 60000, // Lock jobs for 60s to prevent duplicate processing
     }
   );
 
@@ -87,6 +89,14 @@ function initWorker() {
 
   wheelWorker.on('failed', (job, err) => {
     console.error(`[BullMQ] Job ${job.id} [${job.name}] failed:`, err.message);
+  });
+
+  wheelWorker.on('error', (err) => {
+    console.error('[BullMQ] Worker error:', err.message);
+  });
+
+  wheelWorker.on('stalled', (jobId) => {
+    console.warn(`[BullMQ] Job ${jobId} stalled and will be re-processed`);
   });
 
   return wheelWorker;

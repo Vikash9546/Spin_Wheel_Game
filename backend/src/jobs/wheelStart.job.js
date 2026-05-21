@@ -27,10 +27,10 @@ async function process(job) {
   const participantCount = wheel.participants.length;
 
   if (participantCount >= wheel.minPlayers) {
-    console.log(`[wheelStart] Starting wheel ${wheelId} with ${participantCount} players.`);
+    console.log(`[wheelStart] Auto-starting wheel ${wheelId} after 3-minute timer with ${participantCount} players.`);
     const startedWheel = await wheelService.startWheel(wheelId);
     
-    // Broadcast the starting event to the room
+    // Broadcast the starting event to the wheel room
     socketServer.emitToWheel(wheelId, 'gameStarted', {
       wheelId,
       status: startedWheel.status,
@@ -38,15 +38,31 @@ async function process(job) {
       nextEliminationAt: startedWheel.nextEliminationAt,
       currentRound: startedWheel.currentRound,
     });
+
+    // Also broadcast globally so all users know
+    socketServer.broadcast('gameStarted', {
+      wheelId,
+      status: startedWheel.status,
+      startedAt: startedWheel.startedAt,
+      nextEliminationAt: startedWheel.nextEliminationAt,
+      currentRound: startedWheel.currentRound,
+    });
   } else {
-    console.log(`[wheelStart] Aborting wheel ${wheelId}: only ${participantCount} players joined.`);
+    console.log(`[wheelStart] Auto-aborting wheel ${wheelId} after 3-minute timer: only ${participantCount}/${wheel.minPlayers} players joined. Refunding all participants.`);
     const abortedWheel = await wheelService.abortWheel(wheelId);
 
-    // Broadcast abort event (matches frontend SOCKET_EVENTS.GAME_ABORTED)
+    // Broadcast abort event to wheel room (matches frontend SOCKET_EVENTS.GAME_ABORTED)
     socketServer.emitToWheel(wheelId, 'gameAborted', {
       wheelId,
       status: abortedWheel.status,
-      message: `Aborted: minimum players required (${wheel.minPlayers}) was not met. Refunds scheduled.`,
+      message: `Aborted: minimum ${wheel.minPlayers} players required, only ${participantCount} joined. Entry fees are being refunded.`,
+    });
+
+    // Also broadcast globally so UI clears for all users
+    socketServer.broadcast('gameAborted', {
+      wheelId,
+      status: abortedWheel.status,
+      message: `Aborted: minimum ${wheel.minPlayers} players required, only ${participantCount} joined. Entry fees are being refunded.`,
     });
   }
 }

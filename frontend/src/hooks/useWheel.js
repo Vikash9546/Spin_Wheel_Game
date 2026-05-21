@@ -69,10 +69,18 @@ export function useWheel() {
     setCoins(data.coins);
   }, [setCoins]));
 
-  useSocketEvent(SOCKET_EVENTS.GAME_ABORTED, useCallback(async () => {
-    addLogEntry({ type: 'abort', msg: 'Game aborted. Refunds issued.', time: new Date() });
-    await fetchActiveWheel();
-  }, [fetchActiveWheel, addLogEntry]));
+  useSocketEvent(SOCKET_EVENTS.GAME_ABORTED, useCallback(async (data) => {
+    const msg = data?.message || 'Game aborted. Refunds are being processed.';
+    addLogEntry({ type: 'abort', msg, time: new Date() });
+    toast(msg, {
+      icon: '🛑',
+      style: { background: '#1a0a0a', color: '#ff6b6b', border: '1px solid rgba(255,107,107,0.3)' },
+      duration: 6000,
+    });
+    clearWheel();
+    // Small delay then re-fetch to check if a new wheel was created
+    setTimeout(() => fetchActiveWheel(), 1500);
+  }, [fetchActiveWheel, clearWheel, addLogEntry]));
 
   return {
     activeWheel,
