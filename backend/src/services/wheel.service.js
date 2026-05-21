@@ -1,12 +1,13 @@
+const { randomInt } = require('node:crypto');
 const prisma = require('../db/prisma');
 const coinService = require('./coin.service');
 const payoutService = require('./payout.service');
 
-// Fisher-Yates Shuffle
+// Fisher-Yates Shuffle using cryptographically secure randomness
 function shuffle(array) {
   const arr = [...array];
   for (let i = arr.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
+    const j = randomInt(i + 1); // [0, i] — uniform, CSPRNG-backed
     [arr[i], arr[j]] = [arr[j], arr[i]];
   }
   return arr;
