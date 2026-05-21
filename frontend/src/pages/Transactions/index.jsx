@@ -9,10 +9,12 @@ import {
   RiArrowLeftDoubleLine, RiArrowRightDoubleLine
 } from 'react-icons/ri';
 import { WalletService } from '../../services/wallet.service';
+import { useAuthStore } from '../../store/auth.store';
 import { formatCoins } from '../../utils/formatters';
 
 export default function Transactions() {
   // Queries & state
+  const role = useAuthStore((s) => s.role);
   const [search, setSearch] = useState('');
   const [activeTab, setActiveTab] = useState('ALL'); // ALL, REWARD, ENTRY, ADMIN
   const [pageSize, setPageSize] = useState(25);
@@ -450,7 +452,7 @@ export default function Transactions() {
         <div className="flex flex-row items-center justify-between gap-4 mt-2">
           {/* Tabs */}
           <div className="flex bg-[#0b0c13] border border-[#23273a] rounded-[4px] p-[2px]" style={{ backgroundColor: '#0b0c13', borderColor: '#23273a' }}>
-            {['ALL', 'REWARD', 'ENTRY', 'ADMIN'].map((tab) => (
+            {(['ALL', 'REWARD', 'ENTRY'].concat(role === 'admin' ? ['ADMIN'] : [])).map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
