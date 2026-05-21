@@ -36,10 +36,18 @@ async function process(job) {
       isWinnerDeclared: true,
     });
 
+    // Fetch winner name for richer frontend display
+    let winnerName = 'Unknown';
+    try {
+      const winnerUser = await prisma.user.findUnique({ where: { id: winnerId }, select: { name: true } });
+      if (winnerUser?.name) winnerName = winnerUser.name;
+    } catch (_) {}
+
     // Broadcast winner declaration (matches frontend SOCKET_EVENTS.GAME_COMPLETED)
     socketServer.emitToWheel(wheelId, 'gameCompleted', {
       wheelId,
       winnerId,
+      winnerName,
       status: 'COMPLETED',
       winnerPool: result.wheel.winnerPool,
       adminPool: result.wheel.adminPool,

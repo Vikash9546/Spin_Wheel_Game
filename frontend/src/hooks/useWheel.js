@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 import { useWheelStore } from '../store/wheel.store';
 import { useWalletStore } from '../store/wallet.store';
+import { useStatsStore } from '../store/stats.store';
 import { WheelService } from '../services/wheel.service';
 import { useSocketEvent } from './useSocket';
 import { SOCKET_EVENTS } from '../utils/constants';
@@ -10,6 +11,7 @@ import toast from 'react-hot-toast';
 export function useWheel() {
   const { activeWheel, participants, gameLog, setWheel, clearWheel, addLogEntry } = useWheelStore();
   const { setCoins } = useWalletStore();
+  const fetchStats = useStatsStore((s) => s.fetchStats);
 
   const fetchActiveWheel = useCallback(async () => {
     try {
@@ -21,19 +23,24 @@ export function useWheel() {
     }
   }, [setWheel, clearWheel]);
 
-  // Socket event handlers
-  useSocketEvent(SOCKET_EVENTS.WHEEL_CREATED, useCallback(async () => {
-    addLogEntry({ type: 'info', msg: `New wheel created!`, time: new Date() });
+  // ── Socket event handlers with rich log messages ──
+
+  useSocketEvent(SOCKET_EVENTS.WHEEL_CREATED, useCallback(async (data) => {
+    const fee = data?.entryFee ? ` (Entry: ${data.entryFee} coins)` : '';
+    addLogEntry({ type: 'info', msg: `🎡 New wheel created!${fee}`, time: new Date() });
     await fetchActiveWheel();
   }, [fetchActiveWheel, addLogEntry]));
 
-  useSocketEvent(SOCKET_EVENTS.USER_JOINED, useCallback(async () => {
-    addLogEntry({ type: 'join', msg: `Player joined`, time: new Date() });
+  useSocketEvent(SOCKET_EVENTS.USER_JOINED, useCallback(async (data) => {
+    const name = data?.userName || 'A player';
+    const count = data?.participantCount;
+    const countText = count ? ` (${count} players now)` : '';
+    addLogEntry({ type: 'join', msg: `👤 ${name} joined the game${countText}`, time: new Date() });
     await fetchActiveWheel();
   }, [fetchActiveWheel, addLogEntry]));
 
   useSocketEvent(SOCKET_EVENTS.GAME_STARTED, useCallback(async () => {
-    addLogEntry({ type: 'start', msg: `Game started!`, time: new Date() });
+    addLogEntry({ type: 'start', msg: `🚀 Game started! Elimination begins in 7s...`, time: new Date() });
     toast.success('Game has started! First elimination in 7 seconds...');
     await fetchActiveWheel();
   }, [fetchActiveWheel, addLogEntry]));
@@ -41,7 +48,7 @@ export function useWheel() {
   useSocketEvent(SOCKET_EVENTS.PLAYER_ELIMINATED, useCallback(async (data) => {
     const name = data?.eliminatedUserName || 'A player';
     const round = data?.round ?? '?';
-    addLogEntry({ type: 'elim', msg: `${name} eliminated in round ${round}`, time: new Date() });
+    addLogEntry({ type: 'elim', msg: `💀 ${name} eliminated in round ${round}`, time: new Date() });
     toast(`💀 ${name} eliminated! Round ${round}`, {
       style: { background: '#1a0a0a', color: '#ff6b6b', border: '1px solid rgba(255,107,107,0.3)' },
       duration: 4000,
@@ -50,8 +57,9 @@ export function useWheel() {
   }, [fetchActiveWheel, addLogEntry]));
 
   useSocketEvent(SOCKET_EVENTS.GAME_COMPLETED, useCallback(async (data) => {
-    addLogEntry({ type: 'win', msg: `Game complete! Winner ID: ${data?.winnerId}`, time: new Date() });
-    toast.success('🏆 Game Over! Winner has been declared!', { duration: 6000 });
+    const winnerName = data?.winnerName || 'Unknown';
+    addLogEntry({ type: 'win', msg: `🏆 ${winnerName} wins the game!`, time: new Date() });
+    toast.success(`🏆 ${winnerName} is the champion!`, { duration: 6000 });
     // Fetch the completed wheel by its specific ID (fetchActiveWheel won't find COMPLETED wheels)
     if (data?.wheelId) {
       try {
@@ -63,7 +71,9 @@ export function useWheel() {
     } else {
       await fetchActiveWheel();
     }
-  }, [fetchActiveWheel, setWheel, addLogEntry]));
+    // Refresh stats after game completes
+    fetchStats();
+  }, [fetchActiveWheel, setWheel, addLogEntry, fetchStats]));
 
   useSocketEvent(SOCKET_EVENTS.WALLET_UPDATED, useCallback((data) => {
     setCoins(data.coins);
@@ -71,7 +81,7 @@ export function useWheel() {
 
   useSocketEvent(SOCKET_EVENTS.GAME_ABORTED, useCallback(async (data) => {
     const msg = data?.message || 'Game aborted. Refunds are being processed.';
-    addLogEntry({ type: 'abort', msg, time: new Date() });
+    addLogEntry({ type: 'abort', msg: `🛑 ${msg}`, time: new Date() });
     toast(msg, {
       icon: '🛑',
       style: { background: '#1a0a0a', color: '#ff6b6b', border: '1px solid rgba(255,107,107,0.3)' },
@@ -80,7 +90,9 @@ export function useWheel() {
     clearWheel();
     // Small delay then re-fetch to check if a new wheel was created
     setTimeout(() => fetchActiveWheel(), 1500);
-  }, [fetchActiveWheel, clearWheel, addLogEntry]));
+    // Refresh stats after abort (refunds processed)
+    setTimeout(() => fetchStats(), 3000);
+  }, [fetchActiveWheel, clearWheel, addLogEntry, fetchStats]));
 
   return {
     activeWheel,

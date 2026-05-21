@@ -41,15 +41,17 @@ router.post('/wheels/:id/join', async (req, res) => {
   try {
     const { wheel, participant, transaction } = await wheelService.joinWheel(userId, wheelId);
 
-    // Fetch participant count
-    const participantCount = await prisma.wheelParticipant.count({
-      where: { wheelId },
-    });
+    // Fetch participant count and user name for broadcast
+    const [participantCount, joiningUser] = await Promise.all([
+      prisma.wheelParticipant.count({ where: { wheelId } }),
+      prisma.user.findUnique({ where: { id: userId }, select: { name: true } }),
+    ]);
 
     // Broadcast userJoined to the wheel room AFTER database commit
     socketServer.emitToWheel(wheelId, 'userJoined', {
       wheelId,
       userId,
+      userName: joiningUser?.name || 'Player',
       participantId: participant.id,
       winnerPool: wheel.winnerPool,
       adminPool: wheel.adminPool,
