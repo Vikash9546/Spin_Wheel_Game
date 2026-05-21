@@ -332,7 +332,7 @@ export default function SpinWheel() {
               </button>
             )}
 
-            {activeWheel && isWaiting && (isCreator || role === 'admin') && (
+            {activeWheel && isWaiting && role === 'admin' && (
               <button
                 onClick={start}
                 disabled={starting}
@@ -355,7 +355,7 @@ export default function SpinWheel() {
                   <span className="w-1.5 h-1.5 rounded-full bg-primary animate-blink" />
                   GAME IN PROGRESS
                 </div>
-                {(isCreator || role === 'admin') && (
+                {role === 'admin' && (
                   <button
                     onClick={stop}
                     disabled={stopping}
