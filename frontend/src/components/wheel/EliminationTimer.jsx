@@ -1,26 +1,33 @@
-import { useState, useEffect, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { formatCountdown } from '../../utils/formatters';
 
 export default function EliminationTimer({ nextEliminationAt, onExpire }) {
   const [seconds, setSeconds] = useState(0);
-  const intervalRef = useRef(null);
 
   useEffect(() => {
-    if (!nextEliminationAt) { setSeconds(0); return; }
+    if (!nextEliminationAt) {
+      const timeout = setTimeout(() => setSeconds(0), 0);
+      return () => clearTimeout(timeout);
+    }
 
+    let interval;
     function tick() {
       const diff = Math.max(0, Math.floor((new Date(nextEliminationAt) - Date.now()) / 1000));
       setSeconds(diff);
       if (diff === 0) {
-        clearInterval(intervalRef.current);
+        clearInterval(interval);
         onExpire?.();
       }
     }
 
-    tick();
-    intervalRef.current = setInterval(tick, 1000);
-    return () => clearInterval(intervalRef.current);
-  }, [nextEliminationAt]);
+    const timeout = setTimeout(tick, 0);
+    interval = setInterval(tick, 1000);
+
+    return () => {
+      clearTimeout(timeout);
+      clearInterval(interval);
+    };
+  }, [nextEliminationAt, onExpire]);
 
   const urgent = seconds <= 3 && seconds > 0;
 

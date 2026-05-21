@@ -12,6 +12,7 @@ const prisma = require('./db/prisma');
 
 const authRouter = require('./modules/auth/auth.routes');
 const wheelRouter = require('./modules/wheels/wheel.routes');
+const walletRouter = require('./modules/wallets/wallet.routes');
 const authMiddleware = require('./middlewares/auth');
 
 const app = express();
@@ -22,8 +23,9 @@ app.use(express.json());
 // Public Auth Routes
 app.use('/api/auth', authRouter);
 
-// Protected Game Routes
+// Protected Game and Wallet Routes
 app.use('/api', authMiddleware, wheelRouter);
+app.use('/api', authMiddleware, walletRouter);
 
 const server = http.createServer(app);
 

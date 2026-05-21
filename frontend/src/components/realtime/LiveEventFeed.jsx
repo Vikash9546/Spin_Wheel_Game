@@ -1,5 +1,4 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { formatDate } from '../../utils/formatters';
 import { useWheelStore } from '../../store/wheel.store';
 
 const EVENT_STYLES = {

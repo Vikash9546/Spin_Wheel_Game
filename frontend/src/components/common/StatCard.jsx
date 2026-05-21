@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion';
 import clsx from 'clsx';
 
-export default function StatCard({ label, value, sub, icon, color = 'text-primary', glowColor = 'rgba(76,214,255,0.15)', className = '' }) {
+export default function StatCard({ label, value, sub, icon, color = 'text-primary', className = '' }) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 12 }}

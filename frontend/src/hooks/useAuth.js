@@ -4,8 +4,6 @@ import { useAuthStore } from '../store/auth.store';
 import { useWalletStore } from '../store/wallet.store';
 import { AuthService } from '../services/auth.service';
 import { connectSocket, disconnectSocket } from '../sockets/socket';
-import { parseError } from '../utils/helpers';
-import toast from 'react-hot-toast';
 
 export function useAuth() {
   const { user, token, role, login, logout, updateUser } = useAuthStore();

@@ -4,12 +4,11 @@ import { motion } from 'framer-motion';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell,
 } from 'recharts';
-import { RiLiveLine, RiTrophyLine, RiArrowRightLine } from 'react-icons/ri';
+import { RiLiveLine, RiArrowRightLine } from 'react-icons/ri';
 import { useWheel } from '../../hooks/useWheel';
 import { useAuthStore } from '../../store/auth.store';
 import { useWalletStore } from '../../store/wallet.store';
-import { formatCoins, formatDate } from '../../utils/formatters';
-import { wheelStatusColor } from '../../utils/helpers';
+import { formatCoins } from '../../utils/formatters';
 import { WHEEL_STATUS } from '../../utils/constants';
 import StatCard from '../../components/common/StatCard';
 import Badge from '../../components/common/Badge';
@@ -34,10 +33,9 @@ export default function Dashboard() {
   const coins = useWalletStore((s) => s.coins);
   const { activeWheel, participants, fetchActiveWheel } = useWheel();
 
-  useEffect(() => { fetchActiveWheel(); }, []);
+  useEffect(() => { fetchActiveWheel(); }, [fetchActiveWheel]);
 
   const isRunning = activeWheel?.status === WHEEL_STATUS.RUNNING;
-  const isWaiting = activeWheel?.status === WHEEL_STATUS.WAITING;
 
   return (
     <div className="space-y-6">

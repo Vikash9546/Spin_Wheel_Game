@@ -1,5 +1,4 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { RiTrophyLine } from 'react-icons/ri';
 import { formatCoins } from '../../utils/formatters';
 import Button from '../common/Button';
 

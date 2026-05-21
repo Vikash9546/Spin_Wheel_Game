@@ -22,6 +22,8 @@ enum TransactionType {
   WIN_REWARD
   ADMIN_REWARD
   APP_COMMISSION
+  DEPOSIT
+  WITHDRAWAL
 }
 
 model User {

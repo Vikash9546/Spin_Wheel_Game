@@ -1,29 +1,22 @@
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import {
   RiDashboardLine, RiLiveLine, RiWalletLine,
-  RiHistoryLine, RiUserLine, RiShieldLine, RiLogoutBoxLine,
+  RiHistoryLine, RiLogoutBoxLine, RiGamepadLine
 } from 'react-icons/ri';
 import { useAuthStore } from '../../store/auth.store';
-import { useWalletStore } from '../../store/wallet.store';
 import { disconnectSocket } from '../../sockets/socket';
-import { formatCoins, getInitials } from '../../utils/formatters';
-import Avatar from '../common/Avatar';
-import NavLink from './NavLink';
 
 const navItems = [
   { to: '/',             icon: RiDashboardLine, label: 'Dashboard'   },
   { to: '/wheel',        icon: RiLiveLine,      label: 'Live Wheel'  },
   { to: '/wallet',       icon: RiWalletLine,    label: 'Wallet'      },
-];
-
-const adminItems = [
-  { to: '/admin', icon: RiShieldLine, label: 'Admin Panel' },
+  { to: '/history',      icon: RiHistoryLine,   label: 'History'     },
 ];
 
 export default function Sidebar() {
-  const { user, role, logout } = useAuthStore();
-  const coins  = useWalletStore((s) => s.coins);
+  const { logout } = useAuthStore();
   const navigate = useNavigate();
+  const location = useLocation();
 
   function handleLogout() {
     disconnectSocket();
@@ -33,47 +26,63 @@ export default function Sidebar() {
 
   return (
     <aside
-      className="fixed top-[60px] left-0 w-64 h-[calc(100vh-60px)] flex flex-col z-40 hidden md:flex"
-      style={{
-        background: 'rgba(25,27,36,0.97)',
-        backdropFilter: 'blur(20px)',
-        borderRight: '1px solid rgba(255,255,255,0.06)',
-      }}
+      className="fixed top-[64px] left-0 w-64 h-[calc(100vh-64px)] flex flex-col z-40 hidden md:flex bg-[#0b0d16] border-r border-white/[0.06]"
     >
-      {/* User profile block */}
-      <div className="flex flex-col items-center gap-2 px-5 py-5 border-b border-outline">
-        <Avatar name={user?.name || 'Player'} size="lg" />
-        <p className="font-sora font-bold text-sm text-on-bg">{user?.name || 'Player'}</p>
-        <div className="flex items-center gap-2 bg-primary/10 border border-primary/20 px-3 py-1 rounded-full">
-          <span className="text-[10px] font-mono font-bold uppercase text-on-muted">Balance</span>
-          <span className="text-xs font-mono text-primary">{formatCoins(coins)}</span>
+      {/* Pro Gamer Badge at top */}
+      <div className="px-5 py-6 border-b border-white/[0.04]">
+        <div className="bg-[#121422] rounded-xl border border-white/[0.06] p-3 flex items-center gap-3 shadow-[0_4px_20px_rgba(0,0,0,0.4)]">
+          <div className="w-10 h-10 rounded-lg bg-[#1a1d30] border border-primary/20 flex items-center justify-center text-primary shadow-[0_0_12px_rgba(164,230,255,0.2)]">
+            <RiGamepadLine size={20} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <h4 className="font-sora font-extrabold text-sm text-[#e1e1ef] m-0 truncate">Pro Gamer</h4>
+            <span className="font-mono text-[9px] text-[#ff6b6b] font-black tracking-widest uppercase block mt-0.5">
+              RANK: ELITE
+            </span>
+          </div>
         </div>
-        {role === 'admin' && (
-          <span className="text-[9px] font-mono font-bold uppercase tracking-widest bg-tertiary/15 text-tertiary px-2 py-0.5 rounded-full border border-tertiary/30">
-            Admin
-          </span>
-        )}
       </div>
 
-      {/* Navigation */}
-      <nav className="flex-1 py-2 overflow-y-auto">
-        {navItems.map((item) => <NavLink key={item.to} {...item} />)}
-        {role === 'admin' && adminItems.map((item) => <NavLink key={item.to} {...item} />)}
+      {/* Redesigned Esports Navigation */}
+      <nav className="flex-1 px-4 py-6 space-y-2 overflow-y-auto">
+        {navItems.map((item) => {
+          const isActive = location.pathname === item.to || (item.to === '/' && location.pathname === '');
+          const Icon = item.icon;
+
+          return (
+            <Link
+              key={item.to}
+              to={item.to}
+              className={`flex items-center gap-3 px-4 py-3 rounded-xl font-sora text-[13px] font-bold tracking-wide transition-all duration-300 ${
+                isActive
+                  ? 'bg-gradient-to-r from-primary/[0.08] to-transparent border border-primary/30 text-primary shadow-[0_0_15px_rgba(164,230,255,0.1)]'
+                  : 'text-[#859399] border border-transparent hover:text-white hover:bg-white/[0.02]'
+              }`}
+            >
+              <Icon size={18} className={isActive ? 'text-primary' : 'text-[#859399]'} />
+              <span>{item.label}</span>
+            </Link>
+          );
+        })}
       </nav>
 
-      {/* Bottom actions */}
-      <div className="p-4 border-t border-outline flex flex-col gap-2">
+      {/* Bottom Actions section */}
+      <div className="p-5 border-t border-white/[0.04] flex flex-col gap-4">
+        {/* Quick Spin Gradient Button */}
         <Link
           to="/wheel"
-          className="flex items-center justify-center gap-2 py-2.5 rounded-md font-mono text-[11px] font-bold uppercase tracking-widest
-                     bg-grad-secondary text-white shadow-neon-secondary hover:brightness-110 transition-all"
+          className="flex items-center justify-center gap-2 py-3.5 rounded-xl font-sora font-extrabold text-xs tracking-widest uppercase
+                     bg-gradient-to-r from-[#cf5cff] via-[#845ef7] to-[#4cd6ff] text-white hover:brightness-110 active:scale-98 transition-all
+                     shadow-[0_0_24px_rgba(132,94,247,0.35)]"
         >
           QUICK SPIN
         </Link>
+
+        {/* Subtle Logout Button */}
         <button
           onClick={handleLogout}
-          className="flex items-center justify-center gap-2 py-2 text-on-muted text-[11px] font-mono font-bold uppercase tracking-widest
-                     hover:text-error transition-colors"
+          className="flex items-center justify-center gap-2 py-2 text-[#5a6a70] text-xs font-mono font-bold uppercase tracking-wider
+                     hover:text-[#ff6b6b] transition-colors bg-transparent border-0 outline-none cursor-pointer"
         >
           <RiLogoutBoxLine size={15} />
           Logout
@@ -82,3 +91,4 @@ export default function Sidebar() {
     </aside>
   );
 }
+

@@ -11,7 +11,9 @@ export const useAuthStore = create(
 
       login(user, token) {
         let role = 'user';
-        try { role = jwtDecode(token)?.role || 'user'; } catch {}
+        try { role = jwtDecode(token)?.role || 'user'; } catch {
+          // Ignore malformed tokens and keep the default role.
+        }
         set({ user, token, role });
       },
 
