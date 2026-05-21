@@ -28,4 +28,9 @@ export const WalletService = {
     const { data } = await api.get('/wallets/summary');
     return data;
   },
+
+  async getStats() {
+    const { data } = await api.get('/wallets/stats');
+    return data;
+  },
 };

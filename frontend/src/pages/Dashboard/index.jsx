@@ -16,13 +16,6 @@ import { WalletService } from '../../services/wallet.service';
 import WheelCanvas from '../../components/wheel/WheelCanvas';
 import LiveEventFeed from '../../components/realtime/LiveEventFeed';
 
-
-
-const perfData = [
-  { name: 'Win', value: 68, fill: '#4cd6ff' },
-  { name: 'Loss', value: 32, fill: '#ffb4ab' },
-];
-
 export default function Dashboard() {
   const user  = useAuthStore((s) => s.user);
   const coins = useWalletStore((s) => s.coins);
@@ -30,6 +23,17 @@ export default function Dashboard() {
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  // Real user stats
+  const [stats, setStats] = useState({
+    gamesPlayed: 0,
+    totalWins: 0,
+    totalLosses: 0,
+    winRate: 0,
+    lossRate: 0,
+    netProfit: 0,
+  });
+  const [statsLoading, setStatsLoading] = useState(true);
 
   const fetchTransactions = useCallback(async () => {
     setLoading(true);
@@ -49,13 +53,49 @@ export default function Dashboard() {
     }
   }, []);
 
+  const fetchStats = useCallback(async () => {
+    setStatsLoading(true);
+    try {
+      const data = await WalletService.getStats();
+      setStats(data);
+    } catch (e) {
+      console.error('Failed to load stats:', e);
+    } finally {
+      setStatsLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     fetchActiveWheel();
     const timeout = setTimeout(fetchTransactions, 0);
+    fetchStats();
     return () => clearTimeout(timeout);
-  }, [fetchActiveWheel, fetchTransactions]);
+  }, [fetchActiveWheel, fetchTransactions, fetchStats]);
 
   const isRunning = activeWheel?.status === WHEEL_STATUS.RUNNING;
+
+  // Build chart data from real stats
+  const perfData = [
+    { name: 'Win', value: stats.winRate, fill: '#4cd6ff' },
+    { name: 'Loss', value: stats.lossRate, fill: '#ffb4ab' },
+  ];
+
+  // Format net profit
+  const formatProfit = (val) => {
+    const absVal = Math.abs(val);
+    if (absVal >= 1000000) return `${val >= 0 ? '+' : '-'}${(absVal / 1000000).toFixed(1)}M`;
+    if (absVal >= 1000) return `${val >= 0 ? '+' : '-'}${(absVal / 1000).toFixed(1)}K`;
+    return `${val >= 0 ? '+' : ''}${val}`;
+  };
+
+  // Win rate summary text
+  const getSummaryText = () => {
+    if (stats.gamesPlayed === 0) return 'Play your first game to see stats! 🎮';
+    if (stats.winRate >= 60) return `${stats.winRate}% win rate — You're on fire! 🔥`;
+    if (stats.winRate >= 40) return `${stats.winRate}% win rate — Keep pushing! 💪`;
+    if (stats.winRate > 0) return `${stats.winRate}% win rate — Better luck next time! 🎯`;
+    return 'No wins yet — your time will come! ⭐';
+  };
 
   return (
     <div className="space-y-6">
@@ -67,12 +107,30 @@ export default function Dashboard() {
         <p className="text-on-muted mt-1 text-sm">Your real-time multiplayer spin wheel dashboard.</p>
       </motion.div>
 
-      {/* Top stat row */}
+      {/* Top stat row — ALL REAL DATA */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard label="Current Balance" value={formatCoins(coins)} sub="coins" icon="💰" color="grad-text" />
-        <StatCard label="Games Played"    value="24"  sub="all time"       icon="🎮" color="text-secondary" />
-        <StatCard label="Total Wins"      value="16"  sub="67% win rate"   icon="🏆" color="text-tertiary" />
-        <StatCard label="Net Profit"      value="+8.4K" sub="this month"   icon="📈" color="text-primary"  />
+        <StatCard
+          label="Games Played"
+          value={statsLoading ? '...' : String(stats.gamesPlayed)}
+          sub="all time"
+          icon="🎮"
+          color="text-secondary"
+        />
+        <StatCard
+          label="Total Wins"
+          value={statsLoading ? '...' : String(stats.totalWins)}
+          sub={statsLoading ? '...' : `${stats.winRate}% win rate`}
+          icon="🏆"
+          color="text-tertiary"
+        />
+        <StatCard
+          label="Net Profit"
+          value={statsLoading ? '...' : formatProfit(stats.netProfit)}
+          sub="from games"
+          icon="📈"
+          color="text-primary"
+        />
       </div>
 
       {/* Middle row */}
@@ -118,23 +176,34 @@ export default function Dashboard() {
           </Link>
         </div>
 
-        {/* Performance chart */}
+        {/* Performance chart — REAL DATA */}
         <div className="glass-card rounded-lg p-5 lg:col-span-1">
           <p className="text-[10px] font-mono font-bold uppercase tracking-widest text-on-muted mb-4">Win / Loss Ratio</p>
-          <ResponsiveContainer width="100%" height={160}>
-            <BarChart data={perfData} barCategoryGap="30%">
-              <XAxis dataKey="name" tick={{ fill: '#bbc9cf', fontSize: 11, fontFamily: 'JetBrains Mono' }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fill: '#bbc9cf', fontSize: 10 }} axisLine={false} tickLine={false} unit="%" />
-              <Tooltip
-                contentStyle={{ background: '#1d1f29', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, fontSize: 12 }}
-                formatter={(v) => [`${v}%`]}
-              />
-              <Bar dataKey="value" radius={[6, 6, 0, 0]}>
-                {perfData.map((entry) => <Cell key={entry.name} fill={entry.fill} />)}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-          <p className="text-center text-[11px] text-on-muted mt-2">You're in the top 5% of earners this week 🔥</p>
+          {statsLoading ? (
+            <div className="flex items-center justify-center h-[160px]">
+              <p className="text-on-muted text-xs font-mono animate-pulse">Loading stats...</p>
+            </div>
+          ) : stats.gamesPlayed === 0 ? (
+            <div className="flex flex-col items-center justify-center h-[160px] gap-2">
+              <p className="text-on-muted text-3xl">🎮</p>
+              <p className="text-on-muted text-xs font-mono">No games played yet</p>
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height={160}>
+              <BarChart data={perfData} barCategoryGap="30%">
+                <XAxis dataKey="name" tick={{ fill: '#bbc9cf', fontSize: 11, fontFamily: 'JetBrains Mono' }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fill: '#bbc9cf', fontSize: 10 }} axisLine={false} tickLine={false} unit="%" domain={[0, 100]} />
+                <Tooltip
+                  contentStyle={{ background: '#1d1f29', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, fontSize: 12 }}
+                  formatter={(v) => [`${v}%`]}
+                />
+                <Bar dataKey="value" radius={[6, 6, 0, 0]}>
+                  {perfData.map((entry) => <Cell key={entry.name} fill={entry.fill} />)}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          )}
+          <p className="text-center text-[11px] text-on-muted mt-2">{getSummaryText()}</p>
         </div>
 
         {/* Live Event Feed */}
@@ -173,7 +242,7 @@ export default function Dashboard() {
                 </td>
               </tr>
             ) : (
-              transactions.map((t, i) => {
+              transactions.slice(0, 8).map((t, i) => {
                 const pos = t.amount >= 0;
                 return (
                   <tr key={i} className="border-b border-outline/50 hover:bg-white/[0.02] transition-colors last:border-0">

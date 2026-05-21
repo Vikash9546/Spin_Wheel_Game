@@ -371,5 +371,67 @@ router.get('/wallets/summary', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+// 5. GET /wallets/stats - Get user's real game performance stats
+router.get('/wallets/stats', async (req, res) => {
+  const userId = req.user.id;
+
+  try {
+    // Count total games played (wheels the user participated in that are COMPLETED or ABORTED)
+    const gamesPlayed = await prisma.wheelParticipant.count({
+      where: {
+        userId,
+        wheel: {
+          status: { in: ['COMPLETED', 'ABORTED'] },
+        },
+      },
+    });
+
+    // Count total wins
+    const totalWins = await prisma.wheelParticipant.count({
+      where: {
+        userId,
+        isWinner: true,
+      },
+    });
+
+    const totalLosses = Math.max(0, gamesPlayed - totalWins);
+
+    // Win/Loss rate
+    const winRate = gamesPlayed > 0 ? Math.round((totalWins / gamesPlayed) * 100) : 0;
+    const lossRate = gamesPlayed > 0 ? 100 - winRate : 0;
+
+    // Net profit: sum of all WIN_REWARD credits minus all JOIN_DEBIT debits
+    const [winRewards, joinDebits, refunds] = await Promise.all([
+      prisma.transaction.aggregate({
+        where: { userId, type: 'WIN_REWARD' },
+        _sum: { amount: true },
+      }),
+      prisma.transaction.aggregate({
+        where: { userId, type: 'JOIN_DEBIT' },
+        _sum: { amount: true },
+      }),
+      prisma.transaction.aggregate({
+        where: { userId, type: 'REFUND' },
+        _sum: { amount: true },
+      }),
+    ]);
+
+    const totalWinnings = Number(winRewards._sum.amount || 0n);
+    const totalDebits = Number(joinDebits._sum.amount || 0n); // negative values
+    const totalRefunds = Number(refunds._sum.amount || 0n);
+    const netProfit = totalWinnings + totalDebits + totalRefunds;
+
+    res.json({
+      gamesPlayed,
+      totalWins,
+      totalLosses,
+      winRate,
+      lossRate,
+      netProfit,
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 module.exports = router;
