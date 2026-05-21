@@ -261,7 +261,16 @@ async function abortWheel(wheelId) {
  * Cancels pending elimination jobs, marks wheel ABORTED, and triggers refunds.
  */
 async function stopWheel(wheelId) {
+  // Use same lock ID derivation as eliminatePlayer to prevent stop/elim race
+  let lockId = 0;
+  for (let i = 0; i < wheelId.length; i++) {
+    lockId = ((lockId << 5) - lockId + wheelId.charCodeAt(i)) | 0;
+  }
+  lockId = Math.abs(lockId) + 10000;
+
   return await prisma.$transaction(async (tx) => {
+    // Advisory lock — same lock as eliminatePlayer to prevent stop/elimination race
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(${lockId})`;
     await tx.$executeRaw`SELECT 1 FROM "spin_wheels" WHERE id = ${wheelId} FOR UPDATE`;
 
     const wheel = await tx.spinWheel.findUnique({
@@ -324,12 +333,32 @@ async function stopWheel(wheelId) {
 
 /**
  * Run player elimination (7 seconds round logic).
+ *
+ * Synchronization layers:
+ * 1. pg_advisory_xact_lock — serializes all operations on this wheel
+ * 2. Status check — noop if wheel is no longer RUNNING
+ * 3. Round idempotency — noop if round already processed
+ * 4. Unique BullMQ jobId — prevents duplicate job enqueue
  */
 async function eliminatePlayer(wheelId, expectedRound) {
   const { getQueue } = require('../jobs/queue');
 
+  // Generate a stable integer lock ID from the wheelId string
+  // This ensures different wheels don't block each other
+  let lockId = 0;
+  for (let i = 0; i < wheelId.length; i++) {
+    lockId = ((lockId << 5) - lockId + wheelId.charCodeAt(i)) | 0;
+  }
+  // Ensure positive and avoid collision with createWheel lock (1001)
+  lockId = Math.abs(lockId) + 10000;
+
   const result = await prisma.$transaction(async (tx) => {
-    // Lock the wheel row
+    // Layer 1: Advisory lock — serializes ALL concurrent operations on this wheel.
+    // Prevents duplicate eliminations from BullMQ retries, stalled job re-processing,
+    // or race conditions with stopWheel/abortWheel.
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(${lockId})`;
+
+    // Layer 2: Row lock + fetch
     await tx.$executeRaw`SELECT 1 FROM "spin_wheels" WHERE id = ${wheelId} FOR UPDATE`;
 
     const wheel = await tx.spinWheel.findUnique({
@@ -341,13 +370,19 @@ async function eliminatePlayer(wheelId, expectedRound) {
       throw new Error(`Wheel not found: ${wheelId}`);
     }
 
+    // Status validation — wheel may have been stopped/aborted while this job waited
     if (wheel.status !== 'RUNNING') {
       return { noop: true, message: `Wheel is not running, status is ${wheel.status}` };
     }
 
-    // Idempotency check: if this round was already processed
+    // Layer 3: Round idempotency — if this round was already processed (BullMQ retry)
     if (wheel.currentRound > expectedRound) {
       return { noop: true, message: `Round ${expectedRound} already processed. Current round: ${wheel.currentRound}` };
+    }
+
+    // Extra safety: if expectedRound doesn't match currentRound, reject
+    if (wheel.currentRound !== expectedRound) {
+      return { noop: true, message: `Round mismatch: expected ${expectedRound}, wheel is at ${wheel.currentRound}` };
     }
 
     const round = wheel.currentRound;
@@ -358,8 +393,22 @@ async function eliminatePlayer(wheelId, expectedRound) {
       throw new Error(`No player to eliminate at round ${round} for wheel ${wheelId}`);
     }
 
+    // Verify user hasn't already been eliminated (double-elimination guard)
+    const participant = await tx.wheelParticipant.findUnique({
+      where: {
+        wheelId_userId: {
+          wheelId,
+          userId: userIdToEliminate,
+        },
+      },
+    });
+
+    if (participant?.eliminatedAt) {
+      return { noop: true, message: `Player ${userIdToEliminate} already eliminated at round ${round}` };
+    }
+
     // Mark the participant as eliminated
-    const updatedParticipant = await tx.wheelParticipant.update({
+    await tx.wheelParticipant.update({
       where: {
         wheelId_userId: {
           wheelId,
@@ -387,6 +436,14 @@ async function eliminatePlayer(wheelId, expectedRound) {
       }
 
       const winnerId = winnerParticipant.userId;
+
+      // Mark winner
+      await tx.wheelParticipant.update({
+        where: {
+          wheelId_userId: { wheelId, userId: winnerId },
+        },
+        data: { isWinner: true },
+      });
 
       // Get or create system app user
       const appUser = await coinService.getOrCreateSystemAppUser(tx);
@@ -424,7 +481,7 @@ async function eliminatePlayer(wheelId, expectedRound) {
         },
       });
 
-      // Schedule the next elimination round
+      // Schedule the next elimination round (inside the transaction to ensure atomicity)
       const queue = getQueue();
       await queue.add(
         'elimination',
