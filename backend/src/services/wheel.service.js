@@ -27,6 +27,10 @@ async function getActiveWheel(tx) {
 
 /**
  * Admin creates a new wheel.
+ * Triple-layer protection against concurrent creation:
+ * 1. pg_advisory_xact_lock serializes all createWheel calls
+ * 2. Application-level check provides clean error message
+ * 3. active_wheel_idx DB constraint is the final safety net
  */
 async function createWheel(adminId, entryFee) {
   const feeBig = BigInt(entryFee);
@@ -34,36 +38,49 @@ async function createWheel(adminId, entryFee) {
     throw new Error('Entry fee must be positive');
   }
 
-  return await prisma.$transaction(async (tx) => {
-    // Check if an active wheel already exists
-    const activeWheel = await getActiveWheel(tx);
-    if (activeWheel) {
-      throw new Error(`An active wheel already exists with status ${activeWheel.status} (ID: ${activeWheel.id})`);
+  try {
+    return await prisma.$transaction(async (tx) => {
+      // Layer 1: Acquire an advisory lock to serialize concurrent wheel creation attempts.
+      // Lock ID 1001 is arbitrary but must be consistent across all createWheel calls.
+      // This prevents the TOCTOU race where two admins both see "no active wheel".
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(1001)`;
+
+      // Layer 2: Application-level check (provides clean error message)
+      const activeWheel = await getActiveWheel(tx);
+      if (activeWheel) {
+        throw new Error(`An active wheel already exists with status ${activeWheel.status} (ID: ${activeWheel.id})`);
+      }
+
+      const newWheel = await tx.spinWheel.create({
+        data: {
+          status: 'WAITING',
+          entryFee: feeBig,
+          minPlayers: 3,
+          createdBy: adminId,
+          winnerPool: 0n,
+          adminPool: 0n,
+          appPool: 0n,
+        },
+      });
+
+      // Schedule the 3-minute auto-start countdown
+      const { getQueue } = require('../jobs/queue');
+      const queue = getQueue();
+      await queue.add(
+        'wheelStart',
+        { wheelId: newWheel.id },
+        { delay: 3 * 60 * 1000, jobId: `start-${newWheel.id}` }
+      );
+
+      return newWheel;
+    }, { maxWait: 20000, timeout: 30000 });
+  } catch (err) {
+    // Layer 3: Catch DB unique constraint violation from active_wheel_idx
+    if (err.code === 'P2002' || err.message?.includes('active_wheel_idx') || err.message?.includes('Unique constraint')) {
+      throw new Error('An active wheel already exists. Only one wheel can be active at a time.');
     }
-
-    const newWheel = await tx.spinWheel.create({
-      data: {
-        status: 'WAITING',
-        entryFee: feeBig,
-        minPlayers: 3,
-        createdBy: adminId,
-        winnerPool: 0n,
-        adminPool: 0n,
-        appPool: 0n,
-      },
-    });
-
-    // Schedule the 3-minute auto-start countdown
-    const { getQueue } = require('../jobs/queue');
-    const queue = getQueue();
-    await queue.add(
-      'wheelStart',
-      { wheelId: newWheel.id },
-      { delay: 3 * 60 * 1000, jobId: `start-${newWheel.id}` }
-    );
-
-    return newWheel;
-  }, { maxWait: 20000, timeout: 30000 });
+    throw err;
+  }
 }
 
 /**
