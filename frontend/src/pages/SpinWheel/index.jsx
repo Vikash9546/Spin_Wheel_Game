@@ -501,6 +501,7 @@ export default function SpinWheel() {
         eliminatedCount={eliminatedCount}
         startedAt={activeWheel?.startedAt}
         endedAt={activeWheel?.endedAt}
+        participants={participants}
         onClose={() => setDismissedWinnerId(winnerId)}
       />
     </div>
