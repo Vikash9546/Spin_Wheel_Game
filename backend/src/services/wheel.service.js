@@ -234,6 +234,64 @@ async function abortWheel(wheelId) {
 }
 
 /**
+ * Stop a RUNNING wheel mid-game.
+ * Cancels pending elimination jobs, marks wheel ABORTED, and triggers refunds.
+ */
+async function stopWheel(wheelId) {
+  return await prisma.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT 1 FROM "spin_wheels" WHERE id = ${wheelId} FOR UPDATE`;
+
+    const wheel = await tx.spinWheel.findUnique({
+      where: { id: wheelId },
+      include: { participants: true },
+    });
+
+    if (!wheel) {
+      throw new Error(`Wheel not found: ${wheelId}`);
+    }
+
+    // Allow stopping from WAITING or RUNNING states
+    if (!['WAITING', 'RUNNING'].includes(wheel.status)) {
+      if (wheel.status === 'ABORTED') {
+        return wheel; // Idempotency
+      }
+      throw new Error(`Cannot stop wheel in status ${wheel.status}`);
+    }
+
+    // Cancel any pending BullMQ elimination jobs for this wheel
+    const { getQueue } = require('../jobs/queue');
+    const queue = getQueue();
+
+    // Cancel the auto-start job if still pending
+    try { await queue.remove(`start-${wheelId}`); } catch (_) {}
+
+    // Cancel all pending elimination jobs (one per round)
+    const totalRounds = wheel.participants.length - 1;
+    for (let r = wheel.currentRound || 1; r <= totalRounds; r++) {
+      try { await queue.remove(`elim-${wheelId}-${r}`); } catch (_) {}
+    }
+
+    // Transition wheel to ABORTED
+    const stoppedWheel = await tx.spinWheel.update({
+      where: { id: wheelId },
+      data: {
+        status: 'ABORTED',
+        endedAt: new Date(),
+      },
+    });
+
+    // Schedule refund job
+    await queue.add(
+      'refund',
+      { wheelId },
+      { jobId: `refund-${wheelId}` }
+    );
+
+    return stoppedWheel;
+  }, { maxWait: 20000, timeout: 30000 });
+}
+
+/**
  * Run player elimination (7 seconds round logic).
  */
 async function eliminatePlayer(wheelId, expectedRound) {
@@ -363,5 +421,6 @@ module.exports = {
   joinWheel,
   startWheel,
   abortWheel,
+  stopWheel,
   eliminatePlayer,
 };

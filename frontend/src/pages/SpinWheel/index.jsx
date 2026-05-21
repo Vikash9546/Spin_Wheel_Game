@@ -76,6 +76,7 @@ export default function SpinWheel() {
   const [joining,    setJoining]    = useState(false);
   const [starting,   setStarting]   = useState(false);
   const [creating,   setCreating]   = useState(false);
+  const [stopping,   setStopping]   = useState(false);
   const [entryFee,   setEntryFee]   = useState(50);
   const [dismissedWinnerId, setDismissedWinnerId] = useState(null);
 
@@ -128,6 +129,19 @@ export default function SpinWheel() {
       await fetchActiveWheel();
     } catch (err) { toast.error(parseError(err)); }
     finally { setCreating(false); }
+  }
+
+  async function stop() {
+    if (!activeWheel) return;
+    const confirmed = window.confirm('Are you sure you want to stop the game? All entry fees will be refunded to players.');
+    if (!confirmed) return;
+    setStopping(true);
+    try {
+      await WheelService.stopWheel(activeWheel.id);
+      toast.success('Game stopped! Refunds are being processed.');
+      await fetchActiveWheel();
+    } catch (err) { toast.error(parseError(err)); }
+    finally { setStopping(false); }
   }
 
   return (
@@ -336,9 +350,20 @@ export default function SpinWheel() {
             )}
 
             {isRunning && (
-              <div className="px-4 py-2 bg-[#0e111d] text-primary font-mono text-[10px] font-bold rounded-xl border border-primary/20 tracking-widest uppercase flex items-center gap-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-primary animate-blink" />
-                GAME IN PROGRESS
+              <div className="flex items-center gap-3">
+                <div className="px-4 py-2 bg-[#0e111d] text-primary font-mono text-[10px] font-bold rounded-xl border border-primary/20 tracking-widest uppercase flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-primary animate-blink" />
+                  GAME IN PROGRESS
+                </div>
+                {(isCreator || role === 'admin') && (
+                  <button
+                    onClick={stop}
+                    disabled={stopping}
+                    className="px-5 py-2.5 bg-[#ff6b6b]/15 text-[#ff6b6b] font-sora text-[11px] font-extrabold rounded-xl border border-[#ff6b6b]/30 hover:bg-[#ff6b6b]/25 hover:border-[#ff6b6b]/50 transition-all tracking-wider uppercase disabled:opacity-50 shadow-[0_0_15px_rgba(255,107,107,0.1)]"
+                  >
+                    {stopping ? 'STOPPING...' : '⏹ STOP GAME'}
+                  </button>
+                )}
               </div>
             )}
           </div>

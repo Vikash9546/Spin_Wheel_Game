@@ -101,6 +101,43 @@ router.post('/wheels/:id/start', async (req, res) => {
   }
 });
 
+// Admin stops wheel mid-game — refunds all participants
+router.post('/wheels/:id/stop', async (req, res) => {
+  const wheelId = req.params.id;
+
+  try {
+    const wheel = await prisma.spinWheel.findUnique({ where: { id: wheelId } });
+    if (!wheel) {
+      return res.status(404).json({ error: 'Wheel not found' });
+    }
+
+    // Only creator or admin can stop
+    if (wheel.createdBy !== req.user.id && req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Forbidden: Only the creator or admin can stop this wheel' });
+    }
+
+    const stoppedWheel = await wheelService.stopWheel(wheelId);
+
+    // Broadcast game aborted to all clients in the room
+    socketServer.emitToWheel(wheelId, 'gameAborted', {
+      wheelId,
+      status: stoppedWheel.status,
+      message: 'Game stopped by admin. Refunds are being processed.',
+    });
+
+    // Also broadcast globally so UI clears
+    socketServer.broadcast('gameAborted', {
+      wheelId,
+      status: stoppedWheel.status,
+      message: 'Game stopped by admin. Refunds are being processed.',
+    });
+
+    res.json({ message: 'Game stopped. Refunds are being processed.', wheel: stoppedWheel });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
 // Get current active wheel
 router.get('/wheels/active/current', async (req, res) => {
   try {

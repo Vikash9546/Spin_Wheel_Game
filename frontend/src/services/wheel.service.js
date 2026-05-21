@@ -11,6 +11,11 @@ export const WheelService = {
     return data;
   },
 
+  async stopWheel(wheelId) {
+    const { data } = await api.post(`/wheels/${wheelId}/stop`);
+    return data;
+  },
+
   async startWheel(wheelId) {
     const { data } = await api.post(`/wheels/${wheelId}/start`);
     return data;
