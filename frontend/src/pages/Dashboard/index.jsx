@@ -8,6 +8,7 @@ import { RiLiveLine, RiArrowRightLine } from 'react-icons/ri';
 import { useWheel } from '../../hooks/useWheel';
 import { useAuthStore } from '../../store/auth.store';
 import { useWalletStore } from '../../store/wallet.store';
+import { useStatsStore } from '../../store/stats.store';
 import { formatCoins } from '../../utils/formatters';
 import { WHEEL_STATUS } from '../../utils/constants';
 import StatCard from '../../components/common/StatCard';
@@ -17,26 +18,30 @@ import WheelCanvas from '../../components/wheel/WheelCanvas';
 import LiveEventFeed from '../../components/realtime/LiveEventFeed';
 
 export default function Dashboard() {
+  // ── Zustand Stores ──
   const user  = useAuthStore((s) => s.user);
   const coins = useWalletStore((s) => s.coins);
   const setCoins = useWalletStore((s) => s.setCoins);
+
+  // Stats from Zustand store
+  const gamesPlayed = useStatsStore((s) => s.gamesPlayed);
+  const totalWins   = useStatsStore((s) => s.totalWins);
+  const winRate     = useStatsStore((s) => s.winRate);
+  const statsLoading = useStatsStore((s) => s.loading);
+  const fetchStats   = useStatsStore((s) => s.fetchStats);
+  const getPerfData     = useStatsStore((s) => s.getPerfData);
+  const getSummaryText  = useStatsStore((s) => s.getSummaryText);
+  const getFormattedProfit = useStatsStore((s) => s.getFormattedProfit);
+
+  // Wheel store (via hook)
   const { activeWheel, participants, fetchActiveWheel } = useWheel();
+
+  // ── Local state (page-specific, not shared) ──
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Real user stats
-  const [stats, setStats] = useState({
-    gamesPlayed: 0,
-    totalWins: 0,
-    totalLosses: 0,
-    winRate: 0,
-    lossRate: 0,
-    netProfit: 0,
-  });
-  const [statsLoading, setStatsLoading] = useState(true);
-
-  // Fetch fresh balance from server on mount
+  // Fetch fresh balance from server
   const fetchBalance = useCallback(async () => {
     try {
       const data = await WalletService.getSummary();
@@ -48,6 +53,7 @@ export default function Dashboard() {
     }
   }, [setCoins]);
 
+  // Fetch recent transactions (page-local data)
   const fetchTransactions = useCallback(async () => {
     setLoading(true);
     try {
@@ -66,19 +72,7 @@ export default function Dashboard() {
     }
   }, []);
 
-  const fetchStats = useCallback(async () => {
-    setStatsLoading(true);
-    try {
-      const data = await WalletService.getStats();
-      setStats(data);
-    } catch (e) {
-      console.error('Failed to load stats:', e);
-    } finally {
-      setStatsLoading(false);
-    }
-  }, []);
-
-  // Fetch everything on mount
+  // ── Fetch everything on mount ──
   useEffect(() => {
     fetchActiveWheel();
     fetchBalance();
@@ -87,41 +81,19 @@ export default function Dashboard() {
     return () => clearTimeout(timeout);
   }, [fetchActiveWheel, fetchBalance, fetchStats, fetchTransactions]);
 
-  // Re-fetch stats & transactions when coins change (game ended, refund, etc.)
+  // ── Re-fetch stats & transactions when coins change (real-time update) ──
   const prevCoinsRef = useRef(coins);
   useEffect(() => {
     if (prevCoinsRef.current !== coins && prevCoinsRef.current !== 0) {
-      // Balance changed via socket — refresh stats and transactions
       fetchStats();
       fetchTransactions();
     }
     prevCoinsRef.current = coins;
   }, [coins, fetchStats, fetchTransactions]);
 
+  // ── Derived ──
   const isRunning = activeWheel?.status === WHEEL_STATUS.RUNNING;
-
-  // Build chart data from real stats
-  const perfData = [
-    { name: 'Win', value: stats.winRate, fill: '#4cd6ff' },
-    { name: 'Loss', value: stats.lossRate, fill: '#ffb4ab' },
-  ];
-
-  // Format net profit
-  const formatProfit = (val) => {
-    const absVal = Math.abs(val);
-    if (absVal >= 1000000) return `${val >= 0 ? '+' : '-'}${(absVal / 1000000).toFixed(1)}M`;
-    if (absVal >= 1000) return `${val >= 0 ? '+' : '-'}${(absVal / 1000).toFixed(1)}K`;
-    return `${val >= 0 ? '+' : ''}${val}`;
-  };
-
-  // Win rate summary text
-  const getSummaryText = () => {
-    if (stats.gamesPlayed === 0) return 'Play your first game to see stats! 🎮';
-    if (stats.winRate >= 60) return `${stats.winRate}% win rate — You're on fire! 🔥`;
-    if (stats.winRate >= 40) return `${stats.winRate}% win rate — Keep pushing! 💪`;
-    if (stats.winRate > 0) return `${stats.winRate}% win rate — Better luck next time! 🎯`;
-    return 'No wins yet — your time will come! ⭐';
-  };
+  const perfData = getPerfData();
 
   return (
     <div className="space-y-6">
@@ -133,26 +105,26 @@ export default function Dashboard() {
         <p className="text-on-muted mt-1 text-sm">Your real-time multiplayer spin wheel dashboard.</p>
       </motion.div>
 
-      {/* Top stat row — ALL REAL DATA */}
+      {/* Top stat row — ALL FROM ZUSTAND STORES */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard label="Current Balance" value={formatCoins(coins)} sub="coins" icon="💰" color="grad-text" />
         <StatCard
           label="Games Played"
-          value={statsLoading ? '...' : String(stats.gamesPlayed)}
+          value={statsLoading ? '...' : String(gamesPlayed)}
           sub="all time"
           icon="🎮"
           color="text-secondary"
         />
         <StatCard
           label="Total Wins"
-          value={statsLoading ? '...' : String(stats.totalWins)}
-          sub={statsLoading ? '...' : `${stats.winRate}% win rate`}
+          value={statsLoading ? '...' : String(totalWins)}
+          sub={statsLoading ? '...' : `${winRate}% win rate`}
           icon="🏆"
           color="text-tertiary"
         />
         <StatCard
           label="Net Profit"
-          value={statsLoading ? '...' : formatProfit(stats.netProfit)}
+          value={statsLoading ? '...' : getFormattedProfit()}
           sub="from games"
           icon="📈"
           color="text-primary"
@@ -202,14 +174,14 @@ export default function Dashboard() {
           </Link>
         </div>
 
-        {/* Performance chart — REAL DATA */}
+        {/* Performance chart — FROM ZUSTAND STORE */}
         <div className="glass-card rounded-lg p-5 lg:col-span-1">
           <p className="text-[10px] font-mono font-bold uppercase tracking-widest text-on-muted mb-4">Win / Loss Ratio</p>
           {statsLoading ? (
             <div className="flex items-center justify-center h-[160px]">
               <p className="text-on-muted text-xs font-mono animate-pulse">Loading stats...</p>
             </div>
-          ) : stats.gamesPlayed === 0 ? (
+          ) : gamesPlayed === 0 ? (
             <div className="flex flex-col items-center justify-center h-[160px] gap-2">
               <p className="text-on-muted text-3xl">🎮</p>
               <p className="text-on-muted text-xs font-mono">No games played yet</p>
