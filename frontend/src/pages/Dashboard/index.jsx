@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
@@ -19,6 +19,7 @@ import LiveEventFeed from '../../components/realtime/LiveEventFeed';
 export default function Dashboard() {
   const user  = useAuthStore((s) => s.user);
   const coins = useWalletStore((s) => s.coins);
+  const setCoins = useWalletStore((s) => s.setCoins);
   const { activeWheel, participants, fetchActiveWheel } = useWheel();
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -34,6 +35,18 @@ export default function Dashboard() {
     netProfit: 0,
   });
   const [statsLoading, setStatsLoading] = useState(true);
+
+  // Fetch fresh balance from server on mount
+  const fetchBalance = useCallback(async () => {
+    try {
+      const data = await WalletService.getSummary();
+      if (data?.availableCoins !== undefined) {
+        setCoins(data.availableCoins);
+      }
+    } catch (e) {
+      console.error('Failed to fetch balance:', e);
+    }
+  }, [setCoins]);
 
   const fetchTransactions = useCallback(async () => {
     setLoading(true);
@@ -65,12 +78,25 @@ export default function Dashboard() {
     }
   }, []);
 
+  // Fetch everything on mount
   useEffect(() => {
     fetchActiveWheel();
-    const timeout = setTimeout(fetchTransactions, 0);
+    fetchBalance();
     fetchStats();
+    const timeout = setTimeout(fetchTransactions, 0);
     return () => clearTimeout(timeout);
-  }, [fetchActiveWheel, fetchTransactions, fetchStats]);
+  }, [fetchActiveWheel, fetchBalance, fetchStats, fetchTransactions]);
+
+  // Re-fetch stats & transactions when coins change (game ended, refund, etc.)
+  const prevCoinsRef = useRef(coins);
+  useEffect(() => {
+    if (prevCoinsRef.current !== coins && prevCoinsRef.current !== 0) {
+      // Balance changed via socket — refresh stats and transactions
+      fetchStats();
+      fetchTransactions();
+    }
+    prevCoinsRef.current = coins;
+  }, [coins, fetchStats, fetchTransactions]);
 
   const isRunning = activeWheel?.status === WHEEL_STATUS.RUNNING;
 
