@@ -42,8 +42,8 @@ async function process(job) {
     console.log(`[wheelStart] Aborting wheel ${wheelId}: only ${participantCount} players joined.`);
     const abortedWheel = await wheelService.abortWheel(wheelId);
 
-    // Broadcast abort event
-    socketServer.emitToWheel(wheelId, 'wheelAborted', {
+    // Broadcast abort event (matches frontend SOCKET_EVENTS.GAME_ABORTED)
+    socketServer.emitToWheel(wheelId, 'gameAborted', {
       wheelId,
       status: abortedWheel.status,
       message: `Aborted: minimum players required (${wheel.minPlayers}) was not met. Refunds scheduled.`,

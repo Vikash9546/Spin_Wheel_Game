@@ -38,13 +38,20 @@ export function useWheel() {
     await fetchActiveWheel();
   }, [fetchActiveWheel, addLogEntry]));
 
-  useSocketEvent(SOCKET_EVENTS.PLAYER_ELIMINATED, useCallback(async () => {
-    addLogEntry({ type: 'elim', msg: `Player eliminated`, time: new Date() });
+  useSocketEvent(SOCKET_EVENTS.PLAYER_ELIMINATED, useCallback(async (data) => {
+    const name = data?.eliminatedUserName || 'A player';
+    const round = data?.round ?? '?';
+    addLogEntry({ type: 'elim', msg: `${name} eliminated in round ${round}`, time: new Date() });
+    toast(`💀 ${name} eliminated! Round ${round}`, {
+      style: { background: '#1a0a0a', color: '#ff6b6b', border: '1px solid rgba(255,107,107,0.3)' },
+      duration: 4000,
+    });
     await fetchActiveWheel();
   }, [fetchActiveWheel, addLogEntry]));
 
   useSocketEvent(SOCKET_EVENTS.GAME_COMPLETED, useCallback(async (data) => {
-    addLogEntry({ type: 'win', msg: `Game complete! Winner: ${data.winnerId}`, time: new Date() });
+    addLogEntry({ type: 'win', msg: `Game complete! Winner ID: ${data?.winnerId}`, time: new Date() });
+    toast.success('🏆 Game Over! Winner has been declared!', { duration: 6000 });
     await fetchActiveWheel();
   }, [fetchActiveWheel, addLogEntry]));
 

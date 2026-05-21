@@ -20,16 +20,24 @@ async function process(job) {
     const { winnerId, settlement } = result;
     console.log(`[elimination] Game completed! Winner: ${winnerId}, Wheel: ${wheelId}`);
 
-    // Broadcast player elimination
+    // Fetch eliminated player name for final round too
+    let eliminatedUserName = 'A player';
+    try {
+      const eliminatedUser = await prisma.user.findUnique({ where: { id: eliminatedUserId }, select: { name: true } });
+      if (eliminatedUser?.name) eliminatedUserName = eliminatedUser.name;
+    } catch (_) {}
+
+    // Broadcast final player elimination
     socketServer.emitToWheel(wheelId, 'playerEliminated', {
       wheelId,
       eliminatedUserId,
+      eliminatedUserName,
       round,
       isWinnerDeclared: true,
     });
 
-    // Broadcast winner declaration
-    socketServer.emitToWheel(wheelId, 'winnerDeclared', {
+    // Broadcast winner declaration (matches frontend SOCKET_EVENTS.GAME_COMPLETED)
+    socketServer.emitToWheel(wheelId, 'gameCompleted', {
       wheelId,
       winnerId,
       status: 'COMPLETED',
@@ -53,10 +61,18 @@ async function process(job) {
     const { nextRound, nextEliminationAt } = result;
     console.log(`[elimination] Player ${eliminatedUserId} eliminated. Next round: ${nextRound}`);
 
+    // Fetch eliminated player name for richer frontend display
+    let eliminatedUserName = 'A player';
+    try {
+      const eliminatedUser = await prisma.user.findUnique({ where: { id: eliminatedUserId }, select: { name: true } });
+      if (eliminatedUser?.name) eliminatedUserName = eliminatedUser.name;
+    } catch (_) {}
+
     // Broadcast player elimination to room
     socketServer.emitToWheel(wheelId, 'playerEliminated', {
       wheelId,
       eliminatedUserId,
+      eliminatedUserName,
       round,
       nextRound,
       nextEliminationAt,
