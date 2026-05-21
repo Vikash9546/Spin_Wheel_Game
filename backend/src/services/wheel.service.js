@@ -264,17 +264,25 @@ async function stopWheel(wheelId) {
       throw new Error(`Cannot stop wheel in status ${wheel.status}`);
     }
 
-    // Cancel any pending BullMQ elimination jobs for this wheel
+    // Cancel any pending BullMQ jobs for this wheel
     const { getQueue } = require('../jobs/queue');
     const queue = getQueue();
 
+    // Helper: properly remove a BullMQ job by its custom jobId
+    async function removeJob(jobId) {
+      try {
+        const job = await queue.getJob(jobId);
+        if (job) await job.remove();
+      } catch (_) {}
+    }
+
     // Cancel the auto-start job if still pending
-    try { await queue.remove(`start-${wheelId}`); } catch (_) {}
+    await removeJob(`start-${wheelId}`);
 
     // Cancel all pending elimination jobs (one per round)
     const totalRounds = wheel.participants.length - 1;
     for (let r = wheel.currentRound || 1; r <= totalRounds; r++) {
-      try { await queue.remove(`elim-${wheelId}-${r}`); } catch (_) {}
+      await removeJob(`elim-${wheelId}-${r}`);
     }
 
     // Transition wheel to ABORTED

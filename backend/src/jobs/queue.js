@@ -2,29 +2,47 @@ const { Queue, Worker } = require('bullmq');
 const Redis = require('ioredis');
 const { redisUrl } = require('../config');
 
-let redisConnection = null;
+let queueConnection = null;
+let workerConnection = null;
 let wheelQueue = null;
 let wheelWorker = null;
 
-function getRedisConnection() {
-  if (!redisConnection) {
-    redisConnection = new Redis(redisUrl, {
-      maxRetriesPerRequest: null, // Required by BullMQ
-    });
+/**
+ * Create a new Redis connection with standard config.
+ * BullMQ requires separate connections for Queue and Worker.
+ */
+function createRedisConnection(label) {
+  const conn = new Redis(redisUrl, {
+    maxRetriesPerRequest: null, // Required by BullMQ
+  });
 
-    redisConnection.on('error', (err) => {
-      console.error('🔴 [Redis] Error in connection:', err.message);
-    });
+  conn.on('error', (err) => {
+    console.error(`🔴 [Redis:${label}] Error:`, err.message);
+  });
 
-    redisConnection.on('connect', () => {
-      console.log('🔌 [Redis] Connected successfully.');
-    });
+  conn.on('connect', () => {
+    console.log(`🔌 [Redis:${label}] Connected successfully.`);
+  });
+
+  return conn;
+}
+
+function getQueueConnection() {
+  if (!queueConnection) {
+    queueConnection = createRedisConnection('Queue');
   }
-  return redisConnection;
+  return queueConnection;
+}
+
+function getWorkerConnection() {
+  if (!workerConnection) {
+    workerConnection = createRedisConnection('Worker');
+  }
+  return workerConnection;
 }
 
 function initQueue() {
-  const connection = getRedisConnection();
+  const connection = getQueueConnection();
   
   wheelQueue = new Queue('wheel-queue', {
     connection,
@@ -50,7 +68,7 @@ function getQueue() {
 }
 
 function initWorker() {
-  const connection = getRedisConnection();
+  const connection = getWorkerConnection();
 
   const wheelStartJob = require('./wheelStart.job');
   const eliminationJob = require('./elimination.job');
@@ -115,14 +133,17 @@ async function closeQueueAndWorkers() {
     await wheelQueue.close();
     console.log('🔌 [BullMQ] Queue manager terminated.');
   }
-  if (redisConnection) {
-    redisConnection.disconnect();
-    console.log('🔌 [Redis] Connection pool disconnected.');
+  if (workerConnection) {
+    workerConnection.disconnect();
+    console.log('🔌 [Redis:Worker] Disconnected.');
+  }
+  if (queueConnection) {
+    queueConnection.disconnect();
+    console.log('🔌 [Redis:Queue] Disconnected.');
   }
 }
 
 module.exports = {
-  getRedisConnection,
   initQueue,
   getQueue,
   initWorker,

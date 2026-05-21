@@ -28,6 +28,7 @@ async function process(job) {
   const refundAmount = wheel.entryFee;
   let successCount = 0;
   let skipCount = 0;
+  let failedUsers = [];
 
   for (const participant of wheel.participants) {
     const userId = participant.userId;
@@ -76,13 +77,17 @@ async function process(job) {
       }
     } catch (err) {
       console.error(`[refund] Failed to refund user ${userId} for wheel ${wheelId}:`, err.message);
-      // We log and continue so that one user failure doesn't block other users' refunds.
-      // The queue retry or a recovery job will catch up.
-      throw err; // Throw to trigger BullMQ retry of the job
+      // Continue processing remaining users — don't let one failure block others
+      failedUsers.push(userId);
     }
   }
 
-  console.log(`[refund] Completed refunds for wheel ${wheelId}. Successes: ${successCount}, Skipped: ${skipCount}`);
+  console.log(`[refund] Completed refunds for wheel ${wheelId}. Successes: ${successCount}, Skipped: ${skipCount}, Failed: ${failedUsers.length}`);
+
+  // If any users failed, throw to trigger BullMQ retry (already-refunded users will be skipped via idempotency)
+  if (failedUsers.length > 0) {
+    throw new Error(`Refund incomplete for wheel ${wheelId}: ${failedUsers.length} user(s) failed [${failedUsers.join(', ')}]`);
+  }
 }
 
 module.exports = {
