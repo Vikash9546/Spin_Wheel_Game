@@ -385,8 +385,8 @@ export default function Wallet() {
             </thead>
             <tbody className="divide-y divide-white/[0.02]">
               {transactions.map((tx) => {
-                const isDeposit = tx.type === 'DEPOSIT' || tx.type === 'WIN_REWARD' || tx.type === 'REFUND';
-                const sign = isDeposit ? '+' : '';
+                const isDeposit = tx.amount >= 0;
+                const sign = isDeposit ? '+' : '-';
                 
                 // Color badges matching mockup Types
                 let badgeStyle = 'bg-white/5 text-[#859399]';

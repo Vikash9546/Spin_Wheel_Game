@@ -541,7 +541,7 @@ export default function Transactions() {
                   const activityCfg = getActivityConfig(tx);
                   const Icon = activityCfg.icon;
                   const typeLabel = getMappedType(tx.type);
-                  const isDeposit = tx.type === 'DEPOSIT' || tx.type === 'WIN_REWARD' || tx.type === 'REFUND';
+                  const isDeposit = tx.amount >= 0;
                   const isFailed = tx.referenceType === 'Failed';
                   const sign = isDeposit ? '+' : '-';
                   
