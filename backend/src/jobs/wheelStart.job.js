@@ -37,6 +37,7 @@ async function process(job) {
       startedAt: startedWheel.startedAt,
       nextEliminationAt: startedWheel.nextEliminationAt,
       currentRound: startedWheel.currentRound,
+      wheel: startedWheel,
     });
 
     // Also broadcast globally so all users know
@@ -46,6 +47,7 @@ async function process(job) {
       startedAt: startedWheel.startedAt,
       nextEliminationAt: startedWheel.nextEliminationAt,
       currentRound: startedWheel.currentRound,
+      wheel: startedWheel,
     });
   } else {
     console.log(`[wheelStart] Auto-aborting wheel ${wheelId} after 3-minute timer: only ${participantCount}/${wheel.minPlayers} players joined. Refunding all participants.`);

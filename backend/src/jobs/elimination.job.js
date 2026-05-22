@@ -34,6 +34,7 @@ async function process(job) {
       eliminatedUserName,
       round,
       isWinnerDeclared: true,
+      wheel: result.wheel,
     });
 
     // Fetch winner name for richer frontend display
@@ -52,6 +53,7 @@ async function process(job) {
       winnerPool: result.wheel.winnerPool,
       adminPool: result.wheel.adminPool,
       appPool: result.wheel.appPool,
+      wheel: result.wheel,
     });
 
     // Fetch and broadcast wallet updates for winner, admin, and app commission
@@ -85,6 +87,7 @@ async function process(job) {
       nextRound,
       nextEliminationAt,
       isWinnerDeclared: false,
+      wheel: result.wheel,
     });
   }
 }

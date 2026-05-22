@@ -23,7 +23,20 @@ export function useWheel() {
     }
   }, [setWheel, clearWheel]);
 
-  // ── Socket event handlers with rich log messages ──
+  // ── Socket event handlers with real-time state sync ──
+  
+  useSocketEvent('connect', useCallback(() => {
+    if (activeWheel?.id) {
+      console.log(`[Socket] Reconnected, re-joining wheel room: ${activeWheel.id}`);
+      joinWheelRoom(activeWheel.id);
+    }
+  }, [activeWheel?.id]));
+
+  useSocketEvent(SOCKET_EVENTS.WHEEL_STATE, useCallback((data) => {
+    if (data?.wheel) {
+      setWheel(data.wheel);
+    }
+  }, [setWheel]));
 
   useSocketEvent(SOCKET_EVENTS.WHEEL_CREATED, useCallback(async (data) => {
     const fee = data?.entryFee ? ` (Entry: ${data.entryFee} coins)` : '';
@@ -36,14 +49,22 @@ export function useWheel() {
     const count = data?.participantCount;
     const countText = count ? ` (${count} players now)` : '';
     addLogEntry({ type: 'join', msg: `👤 ${name} joined the game${countText}`, time: new Date() });
-    await fetchActiveWheel();
-  }, [fetchActiveWheel, addLogEntry]));
+    if (data?.wheel) {
+      setWheel(data.wheel);
+    } else {
+      await fetchActiveWheel();
+    }
+  }, [fetchActiveWheel, setWheel, addLogEntry]));
 
-  useSocketEvent(SOCKET_EVENTS.GAME_STARTED, useCallback(async () => {
+  useSocketEvent(SOCKET_EVENTS.GAME_STARTED, useCallback(async (data) => {
     addLogEntry({ type: 'start', msg: `🚀 Game started! Elimination begins in 7s...`, time: new Date() });
     toast.success('Game has started! First elimination in 7 seconds...');
-    await fetchActiveWheel();
-  }, [fetchActiveWheel, addLogEntry]));
+    if (data?.wheel) {
+      setWheel(data.wheel);
+    } else {
+      await fetchActiveWheel();
+    }
+  }, [fetchActiveWheel, setWheel, addLogEntry]));
 
   useSocketEvent(SOCKET_EVENTS.PLAYER_ELIMINATED, useCallback(async (data) => {
     const name = data?.eliminatedUserName || 'A player';
@@ -53,15 +74,21 @@ export function useWheel() {
       style: { background: '#1a0a0a', color: '#ff6b6b', border: '1px solid rgba(255,107,107,0.3)' },
       duration: 4000,
     });
-    await fetchActiveWheel();
-  }, [fetchActiveWheel, addLogEntry]));
+    if (data?.wheel) {
+      setWheel(data.wheel);
+    } else {
+      await fetchActiveWheel();
+    }
+  }, [fetchActiveWheel, setWheel, addLogEntry]));
 
   useSocketEvent(SOCKET_EVENTS.GAME_COMPLETED, useCallback(async (data) => {
     const winnerName = data?.winnerName || 'Unknown';
     addLogEntry({ type: 'win', msg: `🏆 ${winnerName} wins the game!`, time: new Date() });
     toast.success(`🏆 ${winnerName} is the champion!`, { duration: 6000 });
-    // Fetch the completed wheel by its specific ID (fetchActiveWheel won't find COMPLETED wheels)
-    if (data?.wheelId) {
+    
+    if (data?.wheel) {
+      setWheel(data.wheel);
+    } else if (data?.wheelId) {
       try {
         const wheel = await WheelService.getWheel(data.wheelId);
         setWheel(wheel);

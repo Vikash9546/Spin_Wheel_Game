@@ -6,18 +6,10 @@ import Dashboard from '../pages/Dashboard';
 import SpinWheel from '../pages/SpinWheel';
 import Wallet from '../pages/Wallet';
 import Transactions from '../pages/Transactions';
-import Admin from '../pages/Admin';
 
 function ProtectedRoute({ children }) {
   const token = useAuthStore((s) => s.token);
   return token ? children : <Navigate to="/login" replace />;
-}
-
-function AdminRoute({ children }) {
-  const { token, role } = useAuthStore();
-  if (!token) return <Navigate to="/login" replace />;
-  if (role !== 'admin') return <Navigate to="/" replace />;
-  return children;
 }
 
 export default function AppRoutes() {
@@ -35,14 +27,6 @@ export default function AppRoutes() {
         <Route path="/wheel" element={<SpinWheel />} />
         <Route path="/wallet" element={<Wallet />} />
         <Route path="/transactions" element={<Transactions />} />
-        <Route
-          path="/admin"
-          element={
-            <AdminRoute>
-              <Admin />
-            </AdminRoute>
-          }
-        />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

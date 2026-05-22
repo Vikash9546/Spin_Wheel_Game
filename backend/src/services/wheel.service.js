@@ -166,7 +166,15 @@ async function startWheel(wheelId) {
 
     const wheel = await tx.spinWheel.findUnique({
       where: { id: wheelId },
-      include: { participants: true },
+      include: {
+        participants: {
+          include: {
+            user: {
+              select: { name: true },
+            },
+          },
+        },
+      },
     });
 
     if (!wheel) {
@@ -201,6 +209,15 @@ async function startWheel(wheelId) {
         currentRound: 1,
         eliminationOrder: eliminationOrder,
         nextEliminationAt: new Date(Date.now() + 7 * 1000),
+      },
+      include: {
+        participants: {
+          include: {
+            user: {
+              select: { name: true },
+            },
+          },
+        },
       },
     });
 
@@ -461,13 +478,26 @@ async function eliminatePlayer(wheelId, expectedRound) {
         appAmount: wheel.appPool,
       });
 
+      const finalWheel = await tx.spinWheel.findUnique({
+        where: { id: wheelId },
+        include: {
+          participants: {
+            include: {
+              user: {
+                select: { name: true },
+              },
+            },
+          },
+        },
+      });
+
       return {
         completed: true,
         round,
         eliminatedUserId: userIdToEliminate,
         winnerId,
         settlement,
-        wheel: settlement.wheel,
+        wheel: finalWheel,
       };
     } else {
       // Advance to next round
@@ -490,13 +520,26 @@ async function eliminatePlayer(wheelId, expectedRound) {
         { delay: 7 * 1000, jobId: `elim-${wheelId}-${nextRound}` }
       );
 
+      const finalWheel = await tx.spinWheel.findUnique({
+        where: { id: wheelId },
+        include: {
+          participants: {
+            include: {
+              user: {
+                select: { name: true },
+              },
+            },
+          },
+        },
+      });
+
       return {
         completed: false,
         round,
         eliminatedUserId: userIdToEliminate,
         nextRound,
         nextEliminationAt: nextEliminationTime,
-        wheel: updatedWheel,
+        wheel: finalWheel,
       };
     }
   }, { maxWait: 20000, timeout: 30000 });

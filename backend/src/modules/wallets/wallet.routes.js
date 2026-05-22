@@ -4,6 +4,8 @@ const socketServer = require('../../websocket/socket.server');
 
 const router = express.Router();
 
+
+
 // Helper to safely format BigInts to Numbers
 function formatTx(tx) {
   return {
@@ -144,122 +146,6 @@ router.get('/wallets/transactions', async (req, res) => {
   const { page, limit, search, type, startDate, endDate, paginated } = req.query;
 
   try {
-    // 1. Auto-seed mock transactions if user has no transactions to make UI look amazing instantly
-    const countTotal = await prisma.transaction.count({ where: { userId } });
-    if (countTotal === 0) {
-      const now = new Date();
-      const mockTxs = [
-        {
-          type: 'WIN_REWARD',
-          amount: BigInt(125000), // $1,250.00
-          balanceBefore: BigInt(57500),
-          balanceAfter: BigInt(182500),
-          referenceType: 'SpinWheel',
-          referenceId: 'Mega Spin Win - Tier 3',
-          createdAt: new Date(now.getTime() - 1 * 60 * 60 * 1000), // 1 hour ago
-        },
-        {
-          type: 'JOIN_DEBIT',
-          amount: BigInt(-5000), // -$50.00
-          balanceBefore: BigInt(62500),
-          balanceAfter: BigInt(57500),
-          referenceType: 'SpinWheel',
-          referenceId: 'ELIMINATOR Tournament Entry',
-          createdAt: new Date(now.getTime() - 3 * 60 * 60 * 1000), // 3 hours ago
-        },
-        {
-          type: 'DEPOSIT',
-          amount: BigInt(50000), // +$500.00
-          balanceBefore: BigInt(12500),
-          balanceAfter: BigInt(62500),
-          referenceType: 'Deposit',
-          referenceId: 'Wallet Top-up (Visa ****4421)',
-          createdAt: new Date(now.getTime() - 1 * 24 * 60 * 60 * 1000), // 1 day ago
-        },
-        {
-          type: 'JOIN_DEBIT',
-          amount: BigInt(0), // $0.00
-          balanceBefore: BigInt(12500),
-          balanceAfter: BigInt(12500),
-          referenceType: 'Failed',
-          referenceId: 'Tournament Entry Failed',
-          createdAt: new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000), // 2 days ago
-        },
-        {
-          type: 'ADMIN_REWARD',
-          amount: BigInt(7500), // +$75.00
-          balanceBefore: BigInt(5000),
-          balanceAfter: BigInt(12500),
-          referenceType: 'Reward',
-          referenceId: 'Loyalty Bonus - Elite Rank',
-          createdAt: new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000), // 3 days ago
-        },
-        {
-          type: 'WITHDRAWAL',
-          amount: BigInt(-15000), // -$150.00
-          balanceBefore: BigInt(20000),
-          balanceAfter: BigInt(5000),
-          referenceType: 'Withdrawal',
-          referenceId: 'Wallet Cash-out (Bank Transfer)',
-          createdAt: new Date(now.getTime() - 4 * 24 * 60 * 60 * 1000), // 4 days ago
-        },
-        {
-          type: 'REFUND',
-          amount: BigInt(5000), // +$50.00
-          balanceBefore: BigInt(15000),
-          balanceAfter: BigInt(20000),
-          referenceType: 'Refund',
-          referenceId: 'Tournament Entry Refund',
-          createdAt: new Date(now.getTime() - 5 * 24 * 60 * 60 * 1000), // 5 days ago
-        },
-        {
-          type: 'JOIN_DEBIT',
-          amount: BigInt(-5000), // -$50.00
-          balanceBefore: BigInt(20000),
-          balanceAfter: BigInt(15000),
-          referenceType: 'SpinWheel',
-          referenceId: 'ELIMINATOR Arena Match Entry',
-          createdAt: new Date(now.getTime() - 6 * 24 * 60 * 60 * 1000), // 6 days ago
-        },
-        {
-          type: 'DEPOSIT',
-          amount: BigInt(20000), // +$200.00
-          balanceBefore: BigInt(0),
-          balanceAfter: BigInt(20000),
-          referenceType: 'Deposit',
-          referenceId: 'Wallet Top-up (Visa ****9922)',
-          createdAt: new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000), // 7 days ago
-        }
-      ];
-
-      for (const mock of mockTxs) {
-        await prisma.transaction.create({
-          data: {
-            userId,
-            type: mock.type,
-            amount: mock.amount,
-            balanceBefore: mock.balanceBefore,
-            balanceAfter: mock.balanceAfter,
-            referenceType: mock.referenceType,
-            referenceId: mock.referenceId,
-            createdAt: mock.createdAt,
-          }
-        });
-      }
-
-      // Sync user coins balance with latest mock transaction state
-      await prisma.user.update({
-        where: { id: userId },
-        data: { coins: 182500n },
-      });
-      
-      // Update coins balance in socket sessions if needed
-      socketServer.emitToUser(userId, 'walletUpdated', {
-        userId,
-        coins: 182500n,
-      });
-    }
-
     // 2. Build filter conditions
     const where = { userId };
 

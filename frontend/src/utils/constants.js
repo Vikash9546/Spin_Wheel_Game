@@ -27,6 +27,7 @@ export const SOCKET_EVENTS = {
   GAME_ABORTED:       'gameAborted',
   JOIN_WHEEL_ROOM:    'joinWheelRoom',
   LEAVE_WHEEL_ROOM:   'leaveWheelRoom',
+  WHEEL_STATE:        'wheelState',
 };
 
 export const ROUTES = {
@@ -37,5 +38,4 @@ export const ROUTES = {
   TRANSACTIONS: '/transactions',
   HISTORY:      '/history',
   PROFILE:      '/profile',
-  ADMIN:        '/admin',
 };

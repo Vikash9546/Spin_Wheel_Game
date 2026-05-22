@@ -130,6 +130,8 @@ async function getOrCreateSystemAppUser(tx) {
       data: {
         id: systemAppId,
         name: 'System App Wallet',
+        email: 'system@app.local',
+        passwordHash: 'system-hash',
         coins: 0n,
       },
     });

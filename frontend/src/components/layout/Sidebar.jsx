@@ -16,7 +16,7 @@ const navItems = [
 ];
 
 export default function Sidebar() {
-  const { logout } = useAuthStore();
+  const { logout, role } = useAuthStore();
   const navigate = useNavigate();
   const location = useLocation();
 

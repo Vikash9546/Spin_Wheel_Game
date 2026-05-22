@@ -1,6 +1,7 @@
 const { Server } = require('socket.io');
 const jwt = require('jsonwebtoken');
 const { jwtSecret } = require('../config');
+const prisma = require('../db/prisma');
 
 let io = null;
 
@@ -42,9 +43,29 @@ function initSocket(server) {
     socket.join(`user:${userId}`);
 
     // Allow clients to join specific room for a spin wheel
-    socket.on('joinWheelRoom', (wheelId) => {
+    socket.on('joinWheelRoom', async (wheelId) => {
       socket.join(`wheel:${wheelId}`);
       console.log(`👤 User ${userId} joined room wheel:${wheelId}`);
+
+      try {
+        const wheel = await prisma.spinWheel.findUnique({
+          where: { id: wheelId },
+          include: {
+            participants: {
+              include: {
+                user: {
+                  select: { name: true },
+                },
+              },
+            },
+          },
+        });
+        if (wheel) {
+          socket.emit('wheelState', { wheel });
+        }
+      } catch (err) {
+        console.error(`[socket] Error sending wheelState for ${wheelId}:`, err);
+      }
     });
 
     socket.on('leaveWheelRoom', (wheelId) => {

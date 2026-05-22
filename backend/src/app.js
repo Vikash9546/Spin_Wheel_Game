@@ -20,12 +20,24 @@ app.use(cors());
 app.use(helmet());
 app.use(express.json());
 
+// Request logger middleware
+app.use((req, res, next) => {
+  console.log(`🌐 [Request] ${req.method} ${req.url}`);
+  next();
+});
+
 // Public Auth Routes
 app.use('/api/auth', authRouter);
 
 // Protected Game and Wallet Routes
 app.use('/api', authMiddleware, wheelRouter);
 app.use('/api', authMiddleware, walletRouter);
+
+// Error handler middleware
+app.use((err, req, res, next) => {
+  console.error(`🔴 [Error] ${req.method} ${req.url}:`, err);
+  res.status(500).json({ error: err.message || 'Internal Server Error' });
+});
 
 const server = http.createServer(app);
 

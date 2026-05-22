@@ -47,6 +47,20 @@ router.post('/wheels/:id/join', async (req, res) => {
       prisma.user.findUnique({ where: { id: userId }, select: { name: true } }),
     ]);
 
+    // Fetch updated wheel with participants and user names
+    const updatedWheel = await prisma.spinWheel.findUnique({
+      where: { id: wheelId },
+      include: {
+        participants: {
+          include: {
+            user: {
+              select: { name: true },
+            },
+          },
+        },
+      },
+    });
+
     // Broadcast userJoined to the wheel room AFTER database commit
     socketServer.emitToWheel(wheelId, 'userJoined', {
       wheelId,
@@ -57,6 +71,7 @@ router.post('/wheels/:id/join', async (req, res) => {
       adminPool: wheel.adminPool,
       appPool: wheel.appPool,
       participantCount,
+      wheel: updatedWheel,
     });
 
     // Broadcast walletUpdated to the user AFTER database commit
@@ -95,6 +110,7 @@ router.post('/wheels/:id/start', async (req, res) => {
       startedAt: startedWheel.startedAt,
       nextEliminationAt: startedWheel.nextEliminationAt,
       currentRound: startedWheel.currentRound,
+      wheel: startedWheel,
     });
 
     res.json(startedWheel);
@@ -145,7 +161,7 @@ router.get('/wheels/active/current', async (req, res) => {
   try {
     const activeWheel = await wheelService.getActiveWheel();
     if (!activeWheel) {
-      return res.status(404).json({ error: 'No active wheel found' });
+      return res.json(null);
     }
 
     const wheelWithParticipants = await prisma.spinWheel.findUnique({

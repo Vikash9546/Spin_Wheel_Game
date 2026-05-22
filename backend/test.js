@@ -31,11 +31,11 @@ async function runTests() {
 
     // 1. Create Test Users
     console.log('1. Creating test users...');
-    const admin = await prisma.user.create({ data: { id: 'admin-id', name: 'Admin', coins: 1000n } });
-    const user1 = await prisma.user.create({ data: { id: 'user-1', name: 'Player 1', coins: 1000n } });
-    const user2 = await prisma.user.create({ data: { id: 'user-2', name: 'Player 2', coins: 1000n } });
-    const user3 = await prisma.user.create({ data: { id: 'user-3', name: 'Player 3', coins: 1000n } });
-    const user4 = await prisma.user.create({ data: { id: 'user-4', name: 'Player 4', coins: 1000n } });
+    const admin = await prisma.user.create({ data: { id: 'admin-id', name: 'Admin', email: 'admin@test.local', passwordHash: 'test-hash', coins: 1000n } });
+    const user1 = await prisma.user.create({ data: { id: 'user-1', name: 'Player 1', email: 'user1@test.local', passwordHash: 'test-hash', coins: 1000n } });
+    const user2 = await prisma.user.create({ data: { id: 'user-2', name: 'Player 2', email: 'user2@test.local', passwordHash: 'test-hash', coins: 1000n } });
+    const user3 = await prisma.user.create({ data: { id: 'user-3', name: 'Player 3', email: 'user3@test.local', passwordHash: 'test-hash', coins: 1000n } });
+    const user4 = await prisma.user.create({ data: { id: 'user-4', name: 'Player 4', email: 'user4@test.local', passwordHash: 'test-hash', coins: 1000n } });
 
     // 2. Verify Single Active Wheel Constraint
     console.log('2. Verifying active wheel constraint...');
@@ -156,6 +156,61 @@ async function runTests() {
     assert.strictEqual(appCoins.coins, 60n);
 
     console.log('✅ All integration tests passed successfully!');
+
+    // Restore standard dev database seeding so the local browser UI isn't broken
+    console.log('🔄 Restoring standard dev/admin users seed data...');
+    const crypto = require('crypto');
+    const { promisify } = require('util');
+    const scrypt = promisify(crypto.scrypt);
+    const hashPassword = async (pwd) => {
+      const salt = crypto.randomBytes(16).toString('hex');
+      const hash = await scrypt(pwd, salt, 64);
+      return `${salt}:${hash.toString('hex')}`;
+    };
+
+    const systemPasswordHash = await hashPassword(crypto.randomUUID());
+    const adminPasswordHash = await hashPassword('admin123');
+    const playerPasswordHash = await hashPassword('player123');
+
+    await prisma.user.upsert({
+      where: { id: 'SYSTEM_APP' },
+      update: { email: 'system@app.local', passwordHash: systemPasswordHash },
+      create: {
+        id: 'SYSTEM_APP',
+        name: 'System App Wallet',
+        email: 'system@app.local',
+        passwordHash: systemPasswordHash,
+        coins: 0n,
+      },
+    });
+
+    await prisma.user.upsert({
+      where: { id: 'test-admin-id' },
+      update: { email: 'admin@eliminator.local', passwordHash: adminPasswordHash, coins: 10000n },
+      create: {
+        id: 'test-admin-id',
+        name: 'Admin User',
+        role: 'admin',
+        email: 'admin@eliminator.local',
+        passwordHash: adminPasswordHash,
+        coins: 10000n,
+      },
+    });
+
+    for (let i = 1; i <= 3; i++) {
+      await prisma.user.upsert({
+        where: { id: `test-user-${i}-id` },
+        update: { email: `player${i}@eliminator.local`, passwordHash: playerPasswordHash, coins: 5000n },
+        create: {
+          id: `test-user-${i}-id`,
+          name: `Player ${i}`,
+          email: `player${i}@eliminator.local`,
+          passwordHash: playerPasswordHash,
+          coins: 5000n,
+        },
+      });
+    }
+    console.log('✅ Dev/admin database state restored.');
     process.exit(0);
   } catch (err) {
     console.error('❌ Integration tests failed:', err);
