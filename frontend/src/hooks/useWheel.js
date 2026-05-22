@@ -89,10 +89,37 @@ export function useWheel() {
       style: { background: '#1a0a0a', color: '#ff6b6b', border: '1px solid rgba(255,107,107,0.3)' },
       duration: 4000,
     });
-    if (data?.wheel) {
+
+    if (data?.wheel && data.wheel.participants?.length > 0) {
+      // Full wheel payload with participants — update entire state at once
       setWheel(data.wheel);
     } else {
-      await fetchActiveWheel();
+      // Fallback: patch the eliminated participant locally for immediate UI response
+      const storeState = useWheelStore.getState();
+      const currentWheel = storeState.activeWheel;
+      const currentParticipants = storeState.participants;
+
+      if (currentWheel && data?.eliminatedUserId) {
+        const patchedParticipants = currentParticipants.map((p) =>
+          p.userId === data.eliminatedUserId
+            ? { ...p, eliminatedAt: new Date().toISOString(), eliminatedRound: round }
+            : p
+        );
+        const patchedWheel = data?.nextEliminationAt
+          ? { ...currentWheel, currentRound: data.nextRound ?? currentWheel.currentRound, nextEliminationAt: data.nextEliminationAt }
+          : currentWheel;
+        storeState.setWheel({ ...patchedWheel, participants: patchedParticipants });
+
+        // Sync from server only if game is still running (not the final round)
+        if (!data?.isWinnerDeclared && currentWheel?.id) {
+          try {
+            const wheel = await WheelService.getWheel(currentWheel.id);
+            setWheel(wheel);
+          } catch { /* ignore */ }
+        }
+      } else {
+        await fetchActiveWheel();
+      }
     }
   }, [fetchActiveWheel, setWheel, addLogEntry]));
 
@@ -100,20 +127,23 @@ export function useWheel() {
     const winnerName = data?.winnerName || 'Unknown';
     addLogEntry({ type: 'win', msg: `🏆 ${winnerName} wins the game!`, time: new Date() });
     toast.success(`🏆 ${winnerName} is the champion!`, { duration: 6000 });
-    
-    if (data?.wheel) {
+
+    const wheelId = data?.wheelId || data?.wheel?.id;
+
+    if (data?.wheel && data.wheel.participants?.length > 0) {
+      // Full payload with participants — set directly
       setWheel(data.wheel);
-    } else if (data?.wheelId) {
+    } else if (wheelId) {
+      // Fetch the completed wheel by ID (includes participants + isWinner flag)
       try {
-        const wheel = await WheelService.getWheel(data.wheelId);
+        const wheel = await WheelService.getWheel(wheelId);
         setWheel(wheel);
       } catch {
+        // Last resort: try active wheel fetch (may return null for completed wheels)
         await fetchActiveWheel();
       }
-    } else {
-      await fetchActiveWheel();
     }
-    // Refresh stats after game completes
+    // Refresh wallet stats after game completes
     fetchStats();
   }, [fetchActiveWheel, setWheel, addLogEntry, fetchStats]));
 

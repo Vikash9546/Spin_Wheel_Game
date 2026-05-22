@@ -83,41 +83,46 @@ export default function SpinWheel() {
 
   useEffect(() => { fetchActiveWheel(); }, [fetchActiveWheel]);
 
-  // Reset dismissedWinnerId when activeWheel.id changes
+  // Reset dismissedWinnerId when activeWheel.id changes (new game started)
   useEffect(() => {
     setDismissedWinnerId(null);
+    setTimeLeft(null);
   }, [activeWheel?.id]);
 
-  const status         = activeWheel?.status || 'NO ACTIVE GAME';
-  const isWaiting      = status === WHEEL_STATUS.WAITING;
-  const isRunning      = status === WHEEL_STATUS.RUNNING;
+  const status      = activeWheel?.status || 'NO ACTIVE GAME';
+  const isWaiting   = status === WHEEL_STATUS.WAITING;
+  const isRunning   = status === WHEEL_STATUS.RUNNING;
+  const isCompleted = status === WHEEL_STATUS.COMPLETED;
 
-  // Real-time countdown timer loop
+  // Real-time countdown timer — restarts whenever nextEliminationAt changes (i.e., after each elimination)
   useEffect(() => {
     if (!isRunning || !activeWheel?.nextEliminationAt) {
-      setTimeLeft(null);
+      setTimeLeft(isRunning ? 0 : null);
       return;
     }
 
-    const interval = setInterval(() => {
+    // Immediately compute once so there's no blank frame
+    const compute = () => {
       const target = new Date(activeWheel.nextEliminationAt).getTime();
-      const now = Date.now();
-      const diff = target - now;
-      if (diff <= 0) {
-        setTimeLeft(0);
-      } else {
-        setTimeLeft(diff / 1000);
-      }
-    }, 50);
+      const diff = target - Date.now();
+      setTimeLeft(Math.max(0, diff / 1000));
+    };
+    compute();
 
+    const interval = setInterval(compute, 50);
     return () => clearInterval(interval);
   }, [isRunning, activeWheel?.nextEliminationAt]);
-  const isCompleted    = status === WHEEL_STATUS.COMPLETED;
-  const hasJoined      = participants.some((p) => p.userId === user?.id);
-  const winner         = participants.find((p) => p.isWinner);
-  const winnerId       = winner?.userId ?? winner?.user?.id ?? activeWheel?.winnerId ?? null;
-  const showWinnerModal = isCompleted && !!winner && dismissedWinnerId !== winnerId;
-  const isCreator      = activeWheel?.createdBy === user?.id;
+
+  const hasJoined  = participants.some((p) => p.userId === user?.id);
+  // Winner: prefer isWinner flag, fall back to wheel.winnerId for robustness
+  const winner     = participants.find((p) => p.isWinner)
+                  || (activeWheel?.winnerId
+                        ? participants.find((p) => p.userId === activeWheel.winnerId)
+                        : null);
+  const winnerId   = winner?.userId ?? activeWheel?.winnerId ?? null;
+  // Show modal when game completed AND we know the winner AND they haven't dismissed it
+  const showWinnerModal = isCompleted && !!winnerId && dismissedWinnerId !== winnerId;
+  const isCreator  = activeWheel?.createdBy === user?.id;
 
   const totalPlayers    = activeWheel?.maxParticipants || 12;
   const currentRound    = activeWheel?.currentRound || 0;
@@ -540,7 +545,11 @@ export default function SpinWheel() {
       {/* Winner modal popup */}
       <WinnerModal
         open={showWinnerModal}
-        winner={winner?.user ? { ...winner.user, userId: winner.userId } : { userId: winner?.userId }}
+        winner={
+          winner
+            ? (winner.user ? { ...winner.user, userId: winner.userId } : { userId: winner.userId })
+            : { userId: winnerId }
+        }
         prizePool={activeWheel?.winnerPool}
         eliminatedCount={eliminatedCount}
         startedAt={activeWheel?.startedAt}
