@@ -74,6 +74,7 @@ router.post('/register', async (req, res) => {
   try {
     const existingUser = await prisma.user.findUnique({ where: { email } });
     if (existingUser) {
+      console.warn(`[Auth] Registration failed: Email ${email} already exists.`);
       return res.status(409).json({ error: 'Email is already registered' });
     }
 
@@ -87,8 +88,10 @@ router.post('/register', async (req, res) => {
       },
     });
     const token = generateToken(user, user.role);
+    console.log(`[Auth] User registered successfully: ${email} (${user.role})`);
     res.status(201).json({ user: sanitizeUser(user), token });
   } catch (err) {
+    console.error(`[Auth] Error during registration for email ${email}:`, err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -107,12 +110,15 @@ router.post('/login', async (req, res) => {
     const passwordMatches = user ? await verifyPassword(password, user.passwordHash) : false;
 
     if (!user || !passwordMatches) {
+      console.warn(`[Auth] Failed login attempt for email: ${email}`);
       return res.status(401).json({ error: 'Invalid email or password' });
     }
 
     const token = generateToken(user, user.role);
+    console.log(`[Auth] User logged in successfully: ${email} (${user.role})`);
     res.json({ user: sanitizeUser(user), token });
   } catch (err) {
+    console.error(`[Auth] Error during login for email ${email}:`, err);
     res.status(500).json({ error: err.message });
   }
 });
