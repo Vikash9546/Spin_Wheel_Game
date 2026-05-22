@@ -16,7 +16,7 @@ export default function Wallet() {
   const setCoins = useWalletStore((s) => s.setCoins);
 
   const [loading, setLoading] = useState(false);
-  const [summary, setSummary] = useState({ totalLiquidity: 1280450, availableCoins: 0 });
+  const [summary, setSummary] = useState({ totalDeposited: 0, totalWithdrawn: 0, availableCoins: 0 });
   const [transactions, setTransactions] = useState([]);
   
   // Deposit state
@@ -144,22 +144,40 @@ export default function Wallet() {
       </div>
 
       {/* ── Top Metric Cards Row ── */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Total Liquidity card */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {/* Total Deposited card */}
         <div className="bg-gradient-to-br from-[#0c0e17]/85 to-[#0b0c16]/50 rounded-2xl p-6 border border-white/[0.04] relative overflow-hidden shadow-lg">
           <div className="flex justify-between items-center mb-4">
             <span className="font-mono text-[9px] text-[#859399] tracking-[0.2em] uppercase font-bold">
-              TOTAL LIQUIDITY
+              TOTAL DEPOSITED
             </span>
             <div className="w-8 h-8 rounded-lg bg-[#00d1ff]/10 flex items-center justify-center text-[#00d1ff] border border-[#00d1ff]/20">
-              <RiArrowLeftRightLine size={16} />
+              <RiAddCircleLine size={16} />
             </div>
           </div>
           <div className="font-sora text-3xl font-black text-[#00d1ff] tracking-wide leading-none">
-            ${summary.totalLiquidity.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            ${(summary.totalDeposited || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </div>
-          <div className="font-mono text-[10px] text-green-400 font-bold uppercase tracking-wider mt-3.5 flex items-center gap-1.5">
-            <span>↗</span> +12.4% vs last week
+          <div className="font-mono text-[10px] text-[#859399] font-bold uppercase tracking-wider mt-3.5">
+            Lifetime deposits
+          </div>
+        </div>
+
+        {/* Total Withdrawn card */}
+        <div className="bg-gradient-to-br from-[#0c0e17]/85 to-[#0b0c16]/50 rounded-2xl p-6 border border-white/[0.04] relative overflow-hidden shadow-lg">
+          <div className="flex justify-between items-center mb-4">
+            <span className="font-mono text-[9px] text-[#859399] tracking-[0.2em] uppercase font-bold">
+              TOTAL WITHDRAWN
+            </span>
+            <div className="w-8 h-8 rounded-lg bg-[#cf5cff]/10 flex items-center justify-center text-[#cf5cff] border border-[#cf5cff]/20">
+              <RiArrowRightUpLine size={16} />
+            </div>
+          </div>
+          <div className="font-sora text-3xl font-black text-[#cf5cff] tracking-wide leading-none">
+            ${(summary.totalWithdrawn || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </div>
+          <div className="font-mono text-[10px] text-[#859399] font-bold uppercase tracking-wider mt-3.5">
+            Lifetime withdrawals
           </div>
         </div>
 
@@ -169,7 +187,7 @@ export default function Wallet() {
             <span className="font-mono text-[9px] text-[#859399] tracking-[0.2em] uppercase font-bold">
               AVAILABLE FOR PLAY
             </span>
-            <div className="w-8 h-8 rounded-lg bg-[#cf5cff]/10 flex items-center justify-center text-[#cf5cff] border border-[#cf5cff]/20">
+            <div className="w-8 h-8 rounded-lg bg-[#ff7bf0]/10 flex items-center justify-center text-[#ff7bf0] border border-[#ff7bf0]/20">
               <RiCopperCoinLine size={16} />
             </div>
           </div>

@@ -227,7 +227,7 @@ router.get('/wallets/transactions', async (req, res) => {
   }
 });
 
-// 4. GET /wallets/summary - Get summary metrics (Liquidity & Available coins)
+// 4. GET /wallets/summary - Get summary metrics (Deposits, Withdrawals & Available coins)
 router.get('/wallets/summary', async (req, res) => {
   const userId = req.user.id;
 
@@ -240,17 +240,34 @@ router.get('/wallets/summary', async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    // Calculate simulated overall system liquidity or volume
-    const sumResult = await prisma.transaction.aggregate({
-      _sum: {
-        amount: true,
-      },
-    });
+    // Aggregate user's real transactions
+    const [depositSum, withdrawalSum] = await Promise.all([
+      prisma.transaction.aggregate({
+        where: {
+          userId,
+          type: 'DEPOSIT',
+        },
+        _sum: {
+          amount: true,
+        },
+      }),
+      prisma.transaction.aggregate({
+        where: {
+          userId,
+          type: 'WITHDRAWAL',
+        },
+        _sum: {
+          amount: true,
+        },
+      }),
+    ]);
 
-    const totalSystemLiquidity = Number(sumResult._sum.amount || 0n) + 1280450; // Mock base + dynamic
+    const totalDeposited = Number(depositSum._sum.amount || 0n);
+    const totalWithdrawn = Math.abs(Number(withdrawalSum._sum.amount || 0n));
 
     res.json({
-      totalLiquidity: Math.max(1280450, totalSystemLiquidity),
+      totalDeposited,
+      totalWithdrawn,
       availableCoins: Number(user.coins),
     });
   } catch (err) {
