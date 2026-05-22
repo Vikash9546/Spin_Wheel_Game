@@ -68,7 +68,7 @@ function MiniCyberpunkAvatar({ index, isActive }) {
 }
 
 export default function SpinWheel() {
-  const { activeWheel, participants, fetchActiveWheel } = useWheel();
+  const { activeWheel, participants, fetchActiveWheel, clearWheel } = useWheel();
   const user = useAuthStore((s) => s.user);
   const role = useAuthStore((s) => s.role);
   const connected = useSocketStore((s) => s.connected);
@@ -79,12 +79,39 @@ export default function SpinWheel() {
   const [stopping,   setStopping]   = useState(false);
   const [entryFee,   setEntryFee]   = useState(50);
   const [dismissedWinnerId, setDismissedWinnerId] = useState(null);
+  const [timeLeft,   setTimeLeft]   = useState(null);
 
   useEffect(() => { fetchActiveWheel(); }, [fetchActiveWheel]);
+
+  // Reset dismissedWinnerId when activeWheel.id changes
+  useEffect(() => {
+    setDismissedWinnerId(null);
+  }, [activeWheel?.id]);
 
   const status         = activeWheel?.status || 'NO ACTIVE GAME';
   const isWaiting      = status === WHEEL_STATUS.WAITING;
   const isRunning      = status === WHEEL_STATUS.RUNNING;
+
+  // Real-time countdown timer loop
+  useEffect(() => {
+    if (!isRunning || !activeWheel?.nextEliminationAt) {
+      setTimeLeft(null);
+      return;
+    }
+
+    const interval = setInterval(() => {
+      const target = new Date(activeWheel.nextEliminationAt).getTime();
+      const now = Date.now();
+      const diff = target - now;
+      if (diff <= 0) {
+        setTimeLeft(0);
+      } else {
+        setTimeLeft(diff / 1000);
+      }
+    }, 50);
+
+    return () => clearInterval(interval);
+  }, [isRunning, activeWheel?.nextEliminationAt]);
   const isCompleted    = status === WHEEL_STATUS.COMPLETED;
   const hasJoined      = participants.some((p) => p.userId === user?.id);
   const winner         = participants.find((p) => p.isWinner);
@@ -260,9 +287,26 @@ export default function SpinWheel() {
           <div className="absolute top-1/3 right-1/4 w-[350px] h-[350px] rounded-full bg-[#cf5cff]/[0.01] blur-[100px] pointer-events-none" />
         </div>
 
+        {/* Glowing Timer Display */}
+        {isRunning && timeLeft !== null && (
+          <div className="absolute top-8 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center">
+            <span className="font-mono text-[9px] text-[#ff6b6b] tracking-[0.3em] uppercase mb-1 font-bold animate-pulse">
+              Next Elimination In
+            </span>
+            <div 
+              className="px-6 py-2.5 rounded-2xl bg-[#0b0d16]/90 border border-[#ff6b6b]/30 shadow-[0_0_20px_rgba(255,107,107,0.15)] flex items-center gap-2"
+            >
+              <RiSkullLine className="text-[#ff6b6b] text-base animate-bounce" />
+              <span className="font-sora text-xl font-black text-white tracking-wider">
+                {timeLeft.toFixed(1)}s
+              </span>
+            </div>
+          </div>
+        )}
+
         <div className="w-full flex-1 flex items-center justify-center">
           <div className="w-full max-w-[440px] relative z-10">
-            <WheelCanvas participants={participants} spinning={isRunning} status={status} />
+            <WheelCanvas participants={participants} spinning={isRunning} status={status} timeLeft={timeLeft} />
           </div>
         </div>
 
@@ -351,9 +395,9 @@ export default function SpinWheel() {
 
             {isRunning && (
               <div className="flex items-center gap-3">
-                <div className="px-4 py-2 bg-[#0e111d] text-primary font-mono text-[10px] font-bold rounded-xl border border-primary/20 tracking-widest uppercase flex items-center gap-2">
-                  <span className="w-1.5 h-1.5 rounded-full bg-primary animate-blink" />
-                  GAME IN PROGRESS
+                <div className="px-4 py-2 bg-[#0e111d] text-[#ff6b6b] font-mono text-[10px] font-bold rounded-xl border border-[#ff6b6b]/20 tracking-widest uppercase flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#ff6b6b] animate-blink" />
+                  GAME IN PROGRESS {timeLeft !== null && `(${timeLeft.toFixed(1)}s)`}
                 </div>
                 {role === 'admin' && (
                   <button
@@ -496,13 +540,16 @@ export default function SpinWheel() {
       {/* Winner modal popup */}
       <WinnerModal
         open={showWinnerModal}
-        winner={winner?.user || { userId: winner?.userId }}
+        winner={winner?.user ? { ...winner.user, userId: winner.userId } : { userId: winner?.userId }}
         prizePool={activeWheel?.winnerPool}
         eliminatedCount={eliminatedCount}
         startedAt={activeWheel?.startedAt}
         endedAt={activeWheel?.endedAt}
         participants={participants}
-        onClose={() => setDismissedWinnerId(winnerId)}
+        onClose={() => {
+          setDismissedWinnerId(winnerId);
+          clearWheel();
+        }}
       />
     </div>
   );

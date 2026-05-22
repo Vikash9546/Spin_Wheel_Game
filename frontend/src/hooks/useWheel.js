@@ -141,5 +141,6 @@ export function useWheel() {
     participants,
     gameLog,
     fetchActiveWheel,
+    clearWheel,
   };
 }

@@ -169,7 +169,7 @@ function CyberpunkAvatar({ index, isActive }) {
   );
 }
 
-export default function WheelCanvas({ participants = [], spinning = false, status = 'WAITING' }) {
+export default function WheelCanvas({ participants = [], spinning = false, status = 'WAITING', timeLeft }) {
   const count = participants.length;
   const radius = 42; // % from center — controls orbit radius
 
@@ -294,16 +294,27 @@ export default function WheelCanvas({ participants = [], spinning = false, statu
 
       {/* Center Hub — dark rounded square */}
       <div className="absolute z-20 w-24 h-24 md:w-32 md:h-32 rounded-2xl bg-[#0c0e17] border border-white/[0.08] flex flex-col items-center justify-center shadow-[0_0_35px_rgba(0,0,0,0.7)]">
-        <p className="font-mono text-[9px] text-[#859399] tracking-[0.2em] uppercase m-0 font-bold">STATUS</p>
-        <p className="font-sora font-extrabold text-[13px] md:text-sm text-white m-0 mt-1 tracking-wider uppercase text-center px-2 leading-tight">
-          {status === 'RUNNING' || status === 'SPINNING' ? 'SPINNING' : status}
-        </p>
-        {(spinning || status === 'RUNNING' || status === 'SPINNING') && (
-          <div className="mt-2 flex gap-1.5">
-            <div className="w-1.5 h-1.5 rounded-full bg-primary animate-bounce" />
-            <div className="w-1.5 h-1.5 rounded-full bg-primary animate-bounce" style={{ animationDelay: '0.15s' }} />
-            <div className="w-1.5 h-1.5 rounded-full bg-primary animate-bounce" style={{ animationDelay: '0.3s' }} />
-          </div>
+        {status === 'RUNNING' && timeLeft !== undefined && timeLeft !== null ? (
+          <>
+            <p className="font-mono text-[8px] text-[#ff6b6b] tracking-[0.15em] uppercase m-0 font-extrabold animate-pulse">NEXT ELIM</p>
+            <p className="font-sora font-black text-base md:text-lg text-white m-0 mt-1 tracking-wider">
+              {timeLeft.toFixed(1)}s
+            </p>
+          </>
+        ) : (
+          <>
+            <p className="font-mono text-[9px] text-[#859399] tracking-[0.2em] uppercase m-0 font-bold">STATUS</p>
+            <p className="font-sora font-extrabold text-[13px] md:text-sm text-white m-0 mt-1 tracking-wider uppercase text-center px-2 leading-tight">
+              {status === 'RUNNING' || status === 'SPINNING' ? 'SPINNING' : status}
+            </p>
+            {(spinning || status === 'RUNNING' || status === 'SPINNING') && (
+              <div className="mt-2 flex gap-1.5">
+                <div className="w-1.5 h-1.5 rounded-full bg-primary animate-bounce" />
+                <div className="w-1.5 h-1.5 rounded-full bg-primary animate-bounce" style={{ animationDelay: '0.15s' }} />
+                <div className="w-1.5 h-1.5 rounded-full bg-primary animate-bounce" style={{ animationDelay: '0.3s' }} />
+              </div>
+            )}
+          </>
         )}
       </div>
 
