@@ -98,6 +98,69 @@ Make sure you have the following installed on your machine:
 
 The database is built on PostgreSQL and managed using Prisma ORM.
 
+### Entity Relationship Diagram
+
+```mermaid
+erDiagram
+    users {
+        string id PK
+        string name
+        string email UK
+        string password_hash
+        string role
+        bigint coins
+        datetime created_at
+    }
+    spin_wheels {
+        string id PK
+        WheelStatus status
+        bigint entry_fee
+        int min_players
+        bigint winner_pool
+        bigint admin_pool
+        bigint app_pool
+        datetime started_at
+        datetime ended_at
+        string created_by
+        string winner_id
+        int current_round
+        datetime next_elimination_at
+        string_array elimination_order
+        datetime created_at
+        datetime updated_at
+    }
+    wheel_participants {
+        string id PK
+        string wheel_id FK
+        string user_id FK
+        datetime joined_at
+        datetime eliminated_at
+        boolean is_winner
+    }
+    transactions {
+        string id PK
+        string user_id FK
+        TransactionType type
+        bigint amount
+        bigint balance_before
+        bigint balance_after
+        string reference_type
+        string reference_id
+        datetime created_at
+    }
+    game_config {
+        string id PK
+        int winner_percentage
+        int admin_percentage
+        int app_percentage
+        datetime created_at
+    }
+
+    users ||--o{ wheel_participants : "participates"
+    spin_wheels ||--o{ wheel_participants : "contains"
+    users ||--o{ transactions : "logs"
+```
+
 ### Table Schema Definitions
 The database schema consists of the following tables:
 
