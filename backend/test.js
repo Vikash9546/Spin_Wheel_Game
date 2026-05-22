@@ -23,11 +23,63 @@ async function runTests() {
   console.log('🧪 Starting Spin Wheel Game Integration Tests...');
 
   try {
-    // 0. Clean DB
-    await prisma.transaction.deleteMany();
-    await prisma.wheelParticipant.deleteMany();
-    await prisma.spinWheel.deleteMany();
-    await prisma.user.deleteMany();
+    // Define the specific user IDs used in tests
+    const testUserIds = ['admin-id', 'user-1', 'user-2', 'user-3', 'user-4'];
+
+    // Find all wheels created by the test admin
+    const testWheels = await prisma.spinWheel.findMany({
+      where: { createdBy: 'admin-id' },
+      select: { id: true }
+    });
+    const testWheelIds = testWheels.map(w => w.id);
+
+    // 0. Clean test-specific DB records
+    // Remove transactions related to test users or test wheels
+    await prisma.transaction.deleteMany({
+      where: {
+        OR: [
+          { userId: { in: testUserIds } },
+          { referenceId: { in: testWheelIds } }
+        ]
+      }
+    });
+
+    // Remove wheel participants related to test users or test wheels
+    await prisma.wheelParticipant.deleteMany({
+      where: {
+        OR: [
+          { userId: { in: testUserIds } },
+          { wheelId: { in: testWheelIds } }
+        ]
+      }
+    });
+
+    // Remove spin wheels created by the test admin
+    await prisma.spinWheel.deleteMany({
+      where: {
+        id: { in: testWheelIds }
+      }
+    });
+
+    // Remove the test users themselves
+    await prisma.user.deleteMany({
+      where: {
+        id: { in: testUserIds }
+      }
+    });
+
+    // Ensure SYSTEM_APP exists and reset its coins to 0 for test commission assertion
+    await prisma.user.upsert({
+      where: { id: 'SYSTEM_APP' },
+      update: { coins: 0n },
+      create: {
+        id: 'SYSTEM_APP',
+        name: 'System App Wallet',
+        email: 'system@app.local',
+        passwordHash: 'dummy-system-hash',
+        coins: 0n,
+      },
+    });
 
     // 1. Create Test Users
     console.log('1. Creating test users...');
