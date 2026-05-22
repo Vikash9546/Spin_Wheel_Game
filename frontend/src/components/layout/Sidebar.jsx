@@ -1,7 +1,7 @@
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import {
   RiDashboardLine, RiLiveLine, RiWalletLine,
-  RiHistoryLine, RiLogoutBoxLine, RiGamepadLine,
+  RiLogoutBoxLine, RiGamepadLine,
   RiArrowLeftRightLine
 } from 'react-icons/ri';
 import { useAuthStore } from '../../store/auth.store';
@@ -12,7 +12,6 @@ const navItems = [
   { to: '/wheel',        icon: RiLiveLine,      label: 'Live Wheel'  },
   { to: '/wallet',       icon: RiWalletLine,    label: 'Wallet'      },
   { to: '/transactions', icon: RiArrowLeftRightLine, label: 'Transactions' },
-  { to: '/history',      icon: RiHistoryLine,   label: 'History'     },
 ];
 
 export default function Sidebar() {

@@ -4,7 +4,7 @@
  */
 
 /**
- * @typedef {'dashboard' | 'live-wheel' | 'wallet' | 'history'} Tab
+ * @typedef {'dashboard' | 'live-wheel' | 'wallet'} Tab
  */
 
 /**

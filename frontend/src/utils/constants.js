@@ -36,6 +36,5 @@ export const ROUTES = {
   SPIN_WHEEL:   '/wheel',
   WALLET:       '/wallet',
   TRANSACTIONS: '/transactions',
-  HISTORY:      '/history',
   PROFILE:      '/profile',
 };
