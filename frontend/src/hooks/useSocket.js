@@ -7,12 +7,16 @@ import { useSocketStore } from '../store/socket.store';
  * Automatically unsubscribes on unmount.
  */
 export function useSocketEvent(event, handler) {
+  const { connected, socketId } = useSocketStore();
+
   useEffect(() => {
     const socket = getSocket();
     if (!socket) return;
     socket.on(event, handler);
-    return () => socket.off(event, handler);
-  }, [event, handler]);
+    return () => {
+      socket.off(event, handler);
+    };
+  }, [event, handler, connected, socketId]);
 }
 
 /**

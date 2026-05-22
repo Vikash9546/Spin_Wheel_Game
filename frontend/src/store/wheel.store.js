@@ -6,9 +6,19 @@ export const useWheelStore = create((set, get) => ({
   gameLog:       [], // live event log
 
   setWheel(wheel) {
+    const participants = (wheel?.participants || []).map((p) => {
+      let eliminatedRound = undefined;
+      if (p.eliminatedAt && wheel?.eliminationOrder) {
+        const idx = wheel.eliminationOrder.indexOf(p.userId);
+        if (idx !== -1) {
+          eliminatedRound = idx + 1;
+        }
+      }
+      return { ...p, eliminatedRound };
+    });
     set({
       activeWheel:  wheel,
-      participants: wheel?.participants || [],
+      participants,
     });
   },
 

@@ -1,17 +1,19 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 import { useWheelStore } from '../store/wheel.store';
 import { useWalletStore } from '../store/wallet.store';
 import { useStatsStore } from '../store/stats.store';
+import { useSocketStore } from '../store/socket.store';
 import { WheelService } from '../services/wheel.service';
 import { useSocketEvent } from './useSocket';
 import { SOCKET_EVENTS } from '../utils/constants';
-import { joinWheelRoom } from '../sockets/socket';
+import { joinWheelRoom, leaveWheelRoom, getSocket } from '../sockets/socket';
 import toast from 'react-hot-toast';
 
 export function useWheel() {
   const { activeWheel, participants, gameLog, setWheel, clearWheel, addLogEntry } = useWheelStore();
   const { setCoins } = useWalletStore();
   const fetchStats = useStatsStore((s) => s.fetchStats);
+  const connected = useSocketStore((s) => s.connected);
 
   const fetchActiveWheel = useCallback(async () => {
     try {
@@ -22,6 +24,19 @@ export function useWheel() {
       clearWheel();
     }
   }, [setWheel, clearWheel]);
+
+  // Synchronize socket room subscription with the active wheel and connection status
+  useEffect(() => {
+    const socket = getSocket();
+    if (socket && connected && activeWheel?.id) {
+      console.log(`[Socket] Joining room for wheel: ${activeWheel.id}`);
+      joinWheelRoom(activeWheel.id);
+      return () => {
+        console.log(`[Socket] Leaving room for wheel: ${activeWheel.id}`);
+        leaveWheelRoom(activeWheel.id);
+      };
+    }
+  }, [connected, activeWheel?.id]);
 
   // ── Socket event handlers with real-time state sync ──
   
